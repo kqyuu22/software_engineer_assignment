@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parking Slot Tester</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; line-height: 1.6; }
+        section { border: 1px solid #ccc; padding: 15px; margin-bottom: 20px; border-radius: 8px; }
+        pre { background: #f4f4f4; padding: 10px; border-radius: 5px; overflow-x: auto; }
+        button { cursor: pointer; padding: 8px 12px; background: #007bff; color: white; border: none; border-radius: 4px; }
+        button:hover { background: #0056b3; }
+        input { padding: 8px; margin-right: 10px; }
+    </style>
+</head>
+<body>
+
+    <h1>🅿️ Parking Slot API Tester</h1>
+    <section>
+        <h2>1. Parking Slots Status</h2>
+        <button onclick="fetchAllSlots()">Refresh List</button>
+        <table border="1" id="slots-table" style="width:100%; margin-top:20px; border-collapse: collapse;">
+            <thead>
+                <tr style="background-color: #f2f2f2;">
+                    <th>ID</th>
+                    <th>Status</th>
+                    <th>Priority</th>
+                </tr>
+            </thead>
+            <tbody id="table-body">
+                </tbody>
+        </table>
+    </section>
+
+    <section>
+        <h2>2. Create New Slot (POST)</h2>
+        <label>Status:</label>
+        <input type="text" id="slotStatus" placeholder="AVAILABLE">
+        <label>Priority:</label>
+        <input type="text" id="slotPriority" placeholder="STAFF">
+        <button onclick="createSlot()">Save Slot</button>
+        <pre id="post-output">Status will appear here...</pre>
+    </section>
+
+    <section>
+        <h2>3. Find Slots by Status</h2>
+        <label>Status:</label>
+        <input type="text" id="findStatus" placeholder="AVAILABLE">
+        <button onclick="findSlotsByStatus()">Find Slots</button>
+        <pre id="find-output">Results will appear here...</pre>
+    </section>
+
+    <script>
+        const API_URL = "http://localhost:8080/slots";
+
+        // GET: Fetch all slots
+async function fetchAllSlots() {
+    const tableBody = document.getElementById('table-body');
+    tableBody.innerHTML = "<tr><td colspan='3'>Loading...</td></tr>"; // Feedback
+
+    try {
+        const response = await fetch(API_URL);
+        const data = await response.json();
+        
+        // Clear previous entries
+        tableBody.innerHTML = "";
+
+        // Render each slot as a table row
+        data.forEach(slot => {
+            const row = `
+                <tr>
+                    <td>${slot.slotId}</td>
+                    <td><span class="status-${slot.status.toLowerCase()}">${slot.status}</span></td>
+                    <td>${slot.priority}</td>
+                </tr>`;
+            tableBody.insertAdjacentHTML('beforeend', row);
+        });
+    } catch (error) {
+        tableBody.innerHTML = `<tr><td colspan='3' style="color:red">Error: ${error.message}</td></tr>`;
+    }
+}
+
+        // POST: Create a slot
+        async function createSlot() {
+            const output = document.getElementById('post-output');
+            const status = document.getElementById('slotStatus').value;
+            const priority = document.getElementById('slotPriority').value;
+
+            const payload = {
+                status: status,
+                priority: priority
+            };
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                output.textContent = "Success: " + JSON.stringify(data, null, 2);
+                fetchAllSlots(); // Refresh the list automatically
+            } catch (error) {
+                output.textContent = "Error: " + error.message;
+            }
+        }
+
+        // GET: Find slots by status
+        async function findSlotsByStatus() {
+            const output = document.getElementById('find-output');
+            const status = document.getElementById('findStatus').value;
+
+            try {
+                const response = await fetch(`${API_URL}/status/${status}`);
+                const data = await response.json();
+                output.textContent = "Results: " + JSON.stringify(data, null, 2);
+            } catch (error) {
+                output.textContent = "Error: " + error.message;
+            }
+        }
+    </script>
+</body>
+</html>
