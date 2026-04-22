@@ -1,33 +1,51 @@
-// package com.se.sebtl.model;
+package com.se.sebtl.model;
 
-// public class AppUser {
-//     private int userId;
-//     private String name;
-//     private String username;
-//     private String password;
-//     private AppRole role;
+import jakarta.persistence.*;
 
-//     public AppUser() {}
-//     public AppUser(int userId, String name, String username, String password, AppRole role) {
-//         this.userId = userId;
-//         this.name = name;
-//         this.username = username;
-//         this.password = password;
-//         this.role = role;
-//     }
+@Entity
+@Table(name = "sso_users") // Matches your Supabase table name
+public class AppUser {
 
-//     public int getUserId()               { return userId; }
-//     public void setUserId(int userId)    { this.userId = userId; }
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "user_id")
+    private Integer userId;
 
-//     public String getName()              { return name; }
-//     public void setName(String name)     { this.name = name; }
+    @Column(name = "name", nullable = false)
+    private String name;
 
-//     public String getUsername()                  { return username; }
-//     public void setUsername(String username)     { this.username = username; }
+    @Column(name = "username", unique = true, nullable = false)
+    private String username;
 
-//     public String getPassword()                  { return password; }
-//     public void setPassword(String password)     { this.password = password; }
+    @Column(name = "password", nullable = false)
+    private String password;
 
-//     public AppRole getRole()             { return role; }
-//     public void setRole(AppRole role)    { this.role = role; }
-// }
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role", nullable = false)
+    private AppRole role;
+
+    public AppUser() {}
+
+    public AppUser(String name, String username, String password, AppRole role) {
+        this.name = name;
+        this.username = username;
+        this.password = password;
+        this.role = role;
+    }
+
+    // Standard Getters and Setters
+    public Integer getUserId() { return userId; }
+    public void setUserId(Integer userId) { this.userId = userId; }
+
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+
+    public String getUsername() { return username; }
+    public void setUsername(String username) { this.username = username; }
+
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
+
+    public AppRole getRole() { return role; }
+    public void setRole(AppRole role) { this.role = role; }
+}

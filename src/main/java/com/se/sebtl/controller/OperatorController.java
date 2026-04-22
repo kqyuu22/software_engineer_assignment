@@ -3,7 +3,6 @@ package com.se.sebtl.controller;
 import com.se.sebtl.model.ParkingSlot;
 import com.se.sebtl.repository.ParkingSlotRepository;
 
-import org.aspectj.weaver.patterns.ConcreteCflowPointcut.Slot;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import com.se.sebtl.model.SlotStatus;

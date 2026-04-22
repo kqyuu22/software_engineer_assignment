@@ -13,11 +13,11 @@ public class ParkingSlot {
     private Integer slotId;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status")
+    @Column(name = "status", nullable = false)
     private SlotStatus status;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "priority")
+    @Column(name = "priority", nullable = false)
     private Role priority;
 
     // Standard Getters and Setters

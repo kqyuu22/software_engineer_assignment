@@ -1,64 +1,90 @@
-// package com.se.sebtl.model;
+package com.se.sebtl.model;
 
-// import java.util.*;
+import jakarta.persistence.*;
+import java.time.LocalDateTime; // Swapped to modern Java Time API
 
-// public class Ticket {
-//     private int userId;
-//     private int ticketId;
-//     private Role role;
-//     private Date entryTime;
-//     private Date exitTime;
-//     private String licensePlate;
-//     private int parkingSpot;
-//     private boolean finished;
-//     private double price;
-//     private double fee;
+@Entity
+@Table(name = "tickets")
+public class Ticket {
 
-//     public Ticket() {}
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "ticket_id")
+    private Integer ticketId;
 
-//     public Ticket(int userId, int ticketId, Role role, String licensePlate, int parkingSpot, double price, double fee) {
-//         this.userId = userId;
-//         this.ticketId = ticketId;
-//         this.role = role;
-//         this.entryTime = new Date();
-//         this.licensePlate = licensePlate;
-//         this.parkingSpot = parkingSpot;
-//         this.finished = false;
-//         this.price = price;
-//         this.fee = fee;
-//     }
+    @Column(name = "user_id", nullable = false)
+    private Integer userId;
 
-//     public int getUserId() { return userId; }
-//     public void setUserId(int userId) { this.userId = userId; }
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role", nullable = false)
+    private Role role;
 
-//     public int getTicketId() { return ticketId; }
-//     public void setTicketId(int ticketId) { this.ticketId = ticketId; }
+    @Column(name = "entry_time", nullable = false)
+    private LocalDateTime entryTime;
 
-//     public Role getRole() { return role; }
-//     public void setRole(Role role) { this.role = role; }
+    @Column(name = "exit_time")
+    private LocalDateTime exitTime;
 
-//     public Date getEntryTime() { return entryTime; }
-//     public void setEntryTime(Date entryTime) { this.entryTime = entryTime; }
+    @Column(name = "license_plate", nullable = false)
+    private String licensePlate;
 
-//     public Date getExitTime() { return exitTime; }
-//     public void setExitTime(Date exitTime) { this.exitTime = exitTime; }
+    @Column(name = "parking_spot")
+    private Integer parkingSpot;
 
-//     public String getLicensePlate() { return licensePlate; }
-//     public void setLicensePlate(String licensePlate) { this.licensePlate = licensePlate; }
+    @Column(name = "finished")
+    private Boolean finished;
 
-//     public int getParkingSpot() { return parkingSpot; }
-//     public void setParkingSpot(int parkingSpot) { this.parkingSpot = parkingSpot; }
+    @Column(name = "price")
+    private Double price;
 
-//     public double getPrice() { return price; }
-//     public void setPrice(double price) { this.price = price; }
+    @Column(name = "fee")
+    private Double fee;
 
-//     public double getFee() { return fee; }
-//     public void setFee(double fee) { this.fee = fee; }
+    public Ticket() {}
 
-//     public boolean isFinished() { return finished; }
-//     public void setFinished(boolean finished) { this.finished = finished; }
-//     public void finish() {
-//         this.exitTime = new Date();
-//         this.finished = true;
-//     }
-// }
+    public Ticket(Integer userId, Role role, String licensePlate, Integer parkingSpot, Double price, Double fee) {
+        this.userId = userId;
+        this.role = role;
+        this.entryTime = LocalDateTime.now(); // Updated to use LocalDateTime
+        this.licensePlate = licensePlate;
+        this.parkingSpot = parkingSpot;
+        this.finished = false;
+        this.price = price;
+        this.fee = fee;
+    }
+
+    public Integer getTicketId() { return ticketId; }
+    public void setTicketId(Integer ticketId) { this.ticketId = ticketId; }
+
+    public Integer getUserId() { return userId; }
+    public void setUserId(Integer userId) { this.userId = userId; }
+
+    public Role getRole() { return role; }
+    public void setRole(Role role) { this.role = role; }
+
+    public LocalDateTime getEntryTime() { return entryTime; }
+    public void setEntryTime(LocalDateTime entryTime) { this.entryTime = entryTime; }
+
+    public LocalDateTime getExitTime() { return exitTime; }
+    public void setExitTime(LocalDateTime exitTime) { this.exitTime = exitTime; }
+
+    public String getLicensePlate() { return licensePlate; }
+    public void setLicensePlate(String licensePlate) { this.licensePlate = licensePlate; }
+
+    public Integer getParkingSpot() { return parkingSpot; }
+    public void setParkingSpot(Integer parkingSpot) { this.parkingSpot = parkingSpot; }
+
+    public Boolean getFinished() { return finished; }
+    public void setFinished(Boolean finished) { this.finished = finished; }
+
+    public Double getPrice() { return price; }
+    public void setPrice(Double price) { this.price = price; }
+
+    public Double getFee() { return fee; }
+    public void setFee(Double fee) { this.fee = fee; }
+
+    public void finish() {
+        this.exitTime = LocalDateTime.now(); // Updated to use LocalDateTime
+        this.finished = true;
+    }
+}
