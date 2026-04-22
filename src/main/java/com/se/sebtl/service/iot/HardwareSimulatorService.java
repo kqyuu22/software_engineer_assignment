@@ -84,4 +84,13 @@ public class HardwareSimulatorService {
             sensors.get(slotId - 1).reportFailure();
         }
     }
+
+    public void simulateSensorFix(int slotId) {
+        if (slotId > 0 && slotId <= sensors.size()) {
+            System.out.println("[SIMULATION] Hardware sensor fixed at slot " + slotId + ". Rebooting to AVAILABLE.");
+            sensors.get(slotId - 1).reportAvailable(); // Overwrites UNKNOWN with AVAILABLE
+        } else {
+            System.out.println("[ERROR] Invalid slot ID.");
+        }
+    }
 }

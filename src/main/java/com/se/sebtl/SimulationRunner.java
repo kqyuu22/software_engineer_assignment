@@ -33,7 +33,8 @@ public class SimulationRunner implements CommandLineRunner {
             System.out.println("2. Hardware: Trigger Sensor Occupied (Car arrives at spot)");
             System.out.println("3. Hardware: Trigger Sensor Available (Car leaves spot)");
             System.out.println("4. Hardware: Trigger Sensor Failure");
-            System.out.println("5. Exit Simulation");
+            System.out.println("5. Hardware: Fix Sensor Failure (Reboot)");
+            System.out.println("6. Exit Simulation");
             System.out.print("> ");
 
             String input = scanner.nextLine();
@@ -41,13 +42,10 @@ public class SimulationRunner implements CommandLineRunner {
             try {
                 switch (input) {
                     case "1":
-                        System.out.print("Enter Role (STAFF, LECTURER, OTHER): ");
+                        System.out.print("Enter Role (STAFF, LECTURER, STUDENT, OTHER): ");
                         Role role = Role.valueOf(scanner.nextLine().toUpperCase());
-                        
-                        // Changed to primitive int
                         int assignedSpot = iotManager.assignSpot(role);
                         
-                        // Checking against -1 instead of null
                         if (assignedSpot != -1) {
                             System.out.println(">> Spot " + assignedSpot + " assigned and RESERVED. Timer started.");
                         } else {
@@ -55,18 +53,22 @@ public class SimulationRunner implements CommandLineRunner {
                         }
                         break;
                     case "2":
-                        System.out.print("Enter slot ID (1-100): ");
+                        System.out.print("Enter assigned slot ID (1-300): ");
                         hardwareSimulator.simulateCarArrival(Integer.parseInt(scanner.nextLine()));
                         break;
                     case "3":
-                        System.out.print("Enter slot ID (1-100): ");
+                        System.out.print("Enter slot ID (1-300): ");
                         hardwareSimulator.simulateCarDeparture(Integer.parseInt(scanner.nextLine()));
                         break;
                     case "4":
-                        System.out.print("Enter slot ID (1-100): ");
+                        System.out.print("Enter slot ID (1-300): ");
                         hardwareSimulator.simulateSensorFailure(Integer.parseInt(scanner.nextLine()));
                         break;
-                    case "5":
+                    case "5": // NEW CASE
+                        System.out.print("Enter broken slot ID to fix (1-300): ");
+                        hardwareSimulator.simulateSensorFix(Integer.parseInt(scanner.nextLine()));
+                        break;
+                    case "6": // MOVED TO 6
                         System.out.println("Exiting simulation...");
                         System.exit(0);
                         break;
@@ -74,7 +76,7 @@ public class SimulationRunner implements CommandLineRunner {
                         System.out.println("Invalid option. Try again.");
                 }
             } catch (IllegalArgumentException e) {
-                System.out.println(">> Error: Invalid Role. Please type STAFF, LECTURER, or OTHER.");
+                System.out.println(">> Error: Invalid Role. Please type STAFF, LECTURER, STUDENT, or OTHER.");
             } catch (Exception e) {
                 System.out.println(">> Error processing input: " + e.getMessage());
             }
