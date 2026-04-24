@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+</head>
+<body>
+
+<h2>Operator Dashboard</h2>
+
+<button onclick="loadSlots()">Real-Time View</button>
+<button onclick="loadAlerts()">Manage Alerts</button>
+<button onclick="loadHistory()">Manage History</button>
+
+<div id="output"></div>
+
+<script>
+const userId = sessionStorage.getItem('userId');
+if (!userId) window.location.href = '/login.html';
+
+// ── UC-O1: Real-time view ─────────────────────────────
+async function loadSlots() {
+    const res = await fetch(`/operator/slots?userId=${userId}`);
+    const slots = await res.json();
+    render(slots);
+}
+
+function render(slots) {
+    const SECTIONS = [
+        { name: 'Section A', range: [1, 50] },
+        { name: 'Section B', range: [51, 100] },
+        { name: 'Section C', range: [101, 150] },
+        { name: 'Section D', range: [151, 200] },
+        { name: 'Section E', range: [201, 250] },
+    ];
+
+    function statusClass(s) {
+        return { AVAILABLE: 's-available', RESERVED: 's-reserved', OCCUPIED: 's-occupied', UNKNOWN: 's-unknown' }[s] || 's-unknown';
+    }
+
+    function priorityShort(p) {
+        return { STAFF: 'STAFF', LECTURER: 'LEC', OTHER: 'OTHER' }[p] || p;
+    }
+
+    const counts = { AVAILABLE: 0, RESERVED: 0, OCCUPIED: 0, UNKNOWN: 0 };
+    slots.forEach(s => counts[s.status] = (counts[s.status] || 0) + 1);
+
+    let html = `
+        <div class="rt-stats">
+            <div class="rt-stat"><strong>${counts.AVAILABLE}</strong>available</div>
+            <div class="rt-stat"><strong>${counts.RESERVED}</strong>reserved</div>
+            <div class="rt-stat"><strong>${counts.OCCUPIED}</strong>occupied</div>
+            <div class="rt-stat"><strong>${counts.UNKNOWN}</strong>unknown</div>
+            <div class="rt-stat"><strong>${slots.length}</strong>total</div>
+        </div>
+        <div class="rt-legend">
+            <div class="rt-legend-item"><div class="rt-legend-dot s-available"></div> available</div>
+            <div class="rt-legend-item"><div class="rt-legend-dot s-reserved"></div> reserved</div>
+            <div class="rt-legend-item"><div class="rt-legend-dot s-occupied"></div> occupied</div>
+            <div class="rt-legend-item"><div class="rt-legend-dot s-unknown"></div> unknown</div>
+        </div>
+    `;
+
+    SECTIONS.forEach(sec => {
+        const sectionSlots = slots.filter(s => s.slotId >= sec.range[0] && s.slotId <= sec.range[1]);
+        html += `<div class="rt-section">
+            <div class="rt-section-header">${sec.name} (${sec.range[0]}&ndash;${sec.range[1]})</div>
+            <div class="rt-grid">
+                ${sectionSlots.map(s => `
+                    <div class="rt-slot ${statusClass(s.status)}" title="ID ${s.slotId} &middot; ${s.status} &middot; ${s.priority}">
+                        <span class="rt-slot-id">ID: ${s.slotId}</span>
+                        <span class="rt-slot-priority">P: ${priorityShort(s.priority)}</span>
+                    </div>`).join('')}
+            </div>
+        </div>`;
+    });
+
+    document.getElementById('output').innerHTML = html;
+}
+
+// ── UC-O2: Alerts ─────────────────────────────────────
+async function loadAlerts() {
+    const res = await fetch(`/operator/alerts?userId=${userId}`);
+    const alerts = await res.json();
+    renderAlerts(alerts);
+}
+
+// ── UC-O2: Alerts ─────────────────────────────────────
+async function loadAlerts() {
+    const res = await fetch(`/operator/alerts?userId=${userId}`);
+    const alerts = await res.json();
+    renderAlerts(alerts);
+}
+
+function renderAlerts(alerts) {
+    if (alerts.length === 0) {
+        document.getElementById('output').innerHTML = '<p style="color:#888;font-size:13px;">No unacknowledged alerts.</p>';
+        return;
+    }
+
+    function typeClass(t) {
+        return { SECURITY_BREACH: 'alert-security', SYSTEM_FAILURE: 'alert-system' }[t] || '';
+    }
+
+    function formatTime(ts) {
+        return new Date(ts).toLocaleString();
+    }
+
+    const html = alerts.map(a => `
+        <div class="alert-card ${typeClass(a.type)}">
+            <div class="alert-row"><span class="alert-label">Alert ID</span><span class="alert-value">${a.alertId}</span></div>
+            <div class="alert-row"><span class="alert-label">Type</span><span class="alert-badge ${typeClass(a.type)}-badge">${a.type.replace('_', ' ')}</span></div>
+            <div class="alert-row"><span class="alert-label">Message</span><span class="alert-value">${a.message}</span></div>
+            <div class="alert-row"><span class="alert-label">Time</span><span class="alert-value">${formatTime(a.timestamp)}</span></div>
+            <div class="alert-row"><span class="alert-label">ACK</span><span class="alert-value">${a.acknowledged ? 'Yes' : 'No'}</span></div>
+            <div class="alert-actions">
+                <button class="resolve-btn" onclick="resolveAlert(${a.alertId})">Resolve</button>
+            </div>
+        </div>
+    `).join('');
+
+    document.getElementById('output').innerHTML = html;
+}
+
+async function resolveAlert(alertId) {
+    const res = await fetch(`/operator/alerts/resolve?userId=${userId}&alertId=${alertId}`, { method: 'POST' });
+    if (res.ok) {
+        await loadAlerts();
+    } else {
+        alert('Failed to resolve alert.');
+    }
+}
+
+// ── UC-O3: History ────────────────────────────────────
+async function loadHistory() {
+    const res = await fetch(`/operator/history?userId=${userId}`);
+    const tickets = await res.json();
+
+    document.getElementById('output').innerHTML = `
+        <div class="search-bar">
+            <input type="number" id="searchInput" placeholder="Search by User ID..." min="0" />
+            <button onclick="searchHistory()">Search</button>
+            <button onclick="clearSearch()">Clear</button>
+        </div>
+        <div id="ticketList"></div>
+    `;
+
+    renderHistory(tickets);
+}
+
+async function searchHistory() {
+    const searchTerm = document.getElementById('searchInput').value || 0;
+    const res = await fetch(`/operator/history/search?userId=${userId}&searchTerm=${searchTerm}`);
+    const tickets = await res.json();
+    renderHistory(tickets);
+}
+
+async function clearSearch() {
+    document.getElementById('searchInput').value = '';
+    const res = await fetch(`/operator/history?userId=${userId}`);
+    const tickets = await res.json();
+    renderHistory(tickets);
+}
+
+function renderHistory(tickets) {
+    const target = document.getElementById('ticketList') || document.getElementById('output');
+
+    if (tickets.length === 0) {
+        target.innerHTML = '<p style="color:#888;font-size:13px;">No tickets found.</p>';
+        return;
+    }
+
+    const sorted = [...tickets].sort((a, b) => {
+        if (a.finished !== b.finished) return a.finished ? 1 : -1;
+        return new Date(b.entryTime) - new Date(a.entryTime);
+    });
+
+    function formatTime(ts) {
+        return ts ? new Date(ts).toLocaleString() : '—';
+    }
+
+    function formatPrice(val) {
+        return val != null ? val.toLocaleString() + ' VND' : '—';
+    }
+
+    target.innerHTML = sorted.map(t => `
+        <div class="ticket-card ${t.finished ? 'ticket-finished' : 'ticket-unfinished'}">
+            <div class="ticket-status-bar">${t.finished ? 'Finished' : 'Active'}</div>
+            <div class="ticket-row"><span class="ticket-label">Ticket ID</span><span class="ticket-value">${t.ticketId}</span></div>
+            <div class="ticket-row"><span class="ticket-label">User ID</span><span class="ticket-value">${t.userId}</span></div>
+            <div class="ticket-row"><span class="ticket-label">Role</span><span class="ticket-value">${t.role}</span></div>
+            <div class="ticket-row"><span class="ticket-label">License Plate</span><span class="ticket-value">${t.licensePlate}</span></div>
+            <div class="ticket-row"><span class="ticket-label">Parking Spot</span><span class="ticket-value">${t.parkingSpot || '—'}</span></div>
+            <div class="ticket-row"><span class="ticket-label">Entry Time</span><span class="ticket-value">${formatTime(t.entryTime)}</span></div>
+            <div class="ticket-row"><span class="ticket-label">Exit Time</span><span class="ticket-value">${formatTime(t.exitTime)}</span></div>
+            <div class="ticket-row"><span class="ticket-label">Price</span><span class="ticket-value">${formatPrice(t.price)}</span></div>
+            <div class="ticket-row"><span class="ticket-label">Fee</span><span class="ticket-value">${formatPrice(t.fee)}</span></div>
+        </div>
+    `).join('');
+}
+</script>
+
+<style>
+  .rt-stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 1.25rem; }
+  .rt-stat { background: #f5f5f5; border-radius: 8px; padding: 8px 14px; font-size: 12px; color: #666; }
+  .rt-stat strong { font-size: 18px; font-weight: 500; display: block; color: #111; }
+  .rt-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 1.5rem; font-size: 12px; color: #666; }
+  .rt-legend-item { display: flex; align-items: center; gap: 6px; }
+  .rt-legend-dot { width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.15); }
+  .rt-section { margin-bottom: 1.5rem; }
+  .rt-section-header { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #888; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #e0e0e0; }
+  .rt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 6px; }
+  .rt-slot { border-radius: 6px; border: 1px solid transparent; padding: 6px 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 52px; }
+  .rt-slot-id { font-size: 11px; font-weight: 500; }
+  .rt-slot-priority { font-size: 10px; margin-top: 2px; }
+  .s-available { background: #d4edda; border-color: #3B6D11; }
+  .s-available .rt-slot-id, .s-available .rt-slot-priority { color: #27500A; }
+  .s-reserved  { background: #fff3cd; border-color: #854F0B; }
+  .s-reserved .rt-slot-id,  .s-reserved .rt-slot-priority  { color: #633806; }
+  .s-occupied  { background: #f8d7da; border-color: #A32D2D; }
+  .s-occupied .rt-slot-id,  .s-occupied .rt-slot-priority  { color: #501313; }
+  .s-unknown   { background: #f0f0f0; border-color: #ccc; }
+  .s-unknown .rt-slot-id,   .s-unknown .rt-slot-priority   { color: #666; }
+
+  .alert-card { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 14px 16px; margin-bottom: 12px; max-width: 480px; }
+  .alert-card.alert-security { border-left: 4px solid #A32D2D; }
+  .alert-card.alert-system   { border-left: 4px solid #854F0B; }
+  .alert-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; font-size: 13px; }
+  .alert-label { min-width: 80px; color: #888; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .alert-value { color: #111; }
+  .alert-badge { font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 4px; }
+  .alert-security-badge { background: #f8d7da; color: #501313; }
+  .alert-system-badge   { background: #fff3cd; color: #633806; }
+  .alert-actions { margin-top: 10px; padding-top: 10px; border-top: 1px solid #f0f0f0; }
+  .resolve-btn { font-size: 12px; padding: 5px 14px; border: 1px solid #A32D2D; border-radius: 5px; background: #fff; color: #A32D2D; cursor: pointer; }
+  .resolve-btn:hover { background: #f8d7da; }
+
+  .ticket-card { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 0; margin-bottom: 12px; max-width: 480px; overflow: hidden; }
+  .ticket-card.ticket-finished   { border-left: 4px solid #3B6D11; }
+  .ticket-card.ticket-unfinished { border-left: 4px solid #A32D2D; }
+  .ticket-status-bar { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.07em; padding: 5px 16px; }
+  .ticket-finished   .ticket-status-bar { background: #d4edda; color: #27500A; }
+  .ticket-unfinished .ticket-status-bar { background: #f8d7da; color: #501313; }
+  .ticket-row { display: flex; align-items: baseline; gap: 10px; margin: 0 16px 6px; font-size: 13px; }
+  .ticket-row:first-of-type { margin-top: 10px; }
+  .ticket-row:last-of-type  { margin-bottom: 12px; }
+  .ticket-label { min-width: 100px; color: #888; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .ticket-value { color: #111; }
+
+  .search-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; max-width: 480px; }
+  .search-bar input { flex: 1; padding: 7px 10px; font-size: 13px; border: 1px solid #ccc; border-radius: 6px; outline: none; }
+  .search-bar input:focus { border-color: #888; }
+  .search-bar button { padding: 7px 14px; font-size: 12px; border-radius: 6px; cursor: pointer; border: 1px solid #ccc; background: #fff; color: #333; }
+  .search-bar button:hover { background: #f0f0f0; }
+</style>
+
+</body>
+</html>

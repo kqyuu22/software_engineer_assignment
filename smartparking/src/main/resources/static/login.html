@@ -1,0 +1,26 @@
+<form id="loginForm">
+    <input type="text"     id="username" placeholder="Username">
+    <input type="password" id="password" placeholder="Password">
+    <button type="button" onclick="login()">Login</button>
+</form>
+
+<script>
+async function login() {
+    const response = await fetch('/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            username: document.getElementById('username').value,
+            password: document.getElementById('password').value
+        })
+    });
+
+    if (response.ok) {
+        const data = await response.json();         // parse JSON, not text
+        sessionStorage.setItem('userId', data.userId);
+        window.location.href = '/' + data.role;     // e.g. /operator
+    } else {
+        alert('Login failed: ' + await response.text());
+    }
+}
+</script>

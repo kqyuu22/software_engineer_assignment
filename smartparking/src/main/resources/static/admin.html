@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+</head>
+<body>
+
+<h2>Admin Dashboard</h2>
+<button onclick="loadHistory()">Manage History</button>
+<button onclick="loadPrice()">Update Price</button>
+<button onclick="loadSlotConfig()">Slot Config</button>
+
+<div id="output"></div>
+
+<script>
+const userId = sessionStorage.getItem('userId');
+if (!userId) window.location.href = '/login.html';
+
+// ── History (same as operator) ────────────────────────
+async function loadHistory() {
+    const res = await fetch(`/admin/history?userId=${userId}`);
+    const tickets = await res.json();
+
+    document.getElementById('output').innerHTML = `
+        <div class="search-bar">
+            <input type="number" id="searchInput" placeholder="Search by User ID..." min="0" />
+            <button onclick="searchHistory()">Search</button>
+            <button onclick="clearSearch()">Clear</button>
+        </div>
+        <div id="ticketList"></div>
+    `;
+
+    renderHistory(tickets);
+}
+
+async function searchHistory() {
+    const searchTerm = document.getElementById('searchInput').value || 0;
+    const res = await fetch(`/admin/history/search?userId=${userId}&searchTerm=${searchTerm}`);
+    const tickets = await res.json();
+    renderHistory(tickets);
+}
+
+async function clearSearch() {
+    document.getElementById('searchInput').value = '';
+    const res = await fetch(`/admin/history?userId=${userId}`);
+    const tickets = await res.json();
+    renderHistory(tickets);
+}
+
+function renderHistory(tickets) {
+    const target = document.getElementById('ticketList') || document.getElementById('output');
+
+    if (tickets.length === 0) {
+        target.innerHTML = '<p style="color:#888;font-size:13px;">No tickets found.</p>';
+        return;
+    }
+
+    function formatTime(ts) { return ts ? new Date(ts).toLocaleString() : '—'; }
+    function formatPrice(val) { return val != null ? val.toLocaleString() + ' VND' : '—'; }
+
+    target.innerHTML = tickets.map(t => `
+        <div class="ticket-card ${t.finished ? 'ticket-finished' : 'ticket-unfinished'}">
+            <div class="ticket-status-bar">${t.finished ? 'Finished' : 'Active'}</div>
+            <div class="ticket-row"><span class="ticket-label">Ticket ID</span><span class="ticket-value">${t.ticketId}</span></div>
+            <div class="ticket-row"><span class="ticket-label">User ID</span><span class="ticket-value">${t.userId}</span></div>
+            <div class="ticket-row"><span class="ticket-label">Role</span><span class="ticket-value">${t.role}</span></div>
+            <div class="ticket-row"><span class="ticket-label">License Plate</span><span class="ticket-value">${t.licensePlate}</span></div>
+            <div class="ticket-row"><span class="ticket-label">Parking Spot</span><span class="ticket-value">${t.parkingSpot || '—'}</span></div>
+            <div class="ticket-row"><span class="ticket-label">Entry Time</span><span class="ticket-value">${formatTime(t.entryTime)}</span></div>
+            <div class="ticket-row"><span class="ticket-label">Exit Time</span><span class="ticket-value">${formatTime(t.exitTime)}</span></div>
+            <div class="ticket-row"><span class="ticket-label">Price</span><span class="ticket-value">${formatPrice(t.price)}</span></div>
+            <div class="ticket-row"><span class="ticket-label">Fee</span><span class="ticket-value">${formatPrice(t.fee)}</span></div>
+        </div>
+    `).join('');
+}
+
+// ── Pricing ───────────────────────────────────────────
+async function loadPrice() {
+    const res = await fetch(`/admin/price?userId=${userId}`);
+    const current = await res.json();
+
+    document.getElementById('output').innerHTML = `
+        <div class="price-card">
+            <div class="price-current">
+                <span class="price-label">Current Price</span>
+                <span class="price-value" id="currentPrice">${current.toLocaleString()} VND</span>
+            </div>
+            <div class="price-form">
+                <input type="number" id="priceInput" placeholder="Enter new price..." min="1" step="1000" value="${current}" />
+                <span class="price-unit">VND</span>
+            </div>
+            <div class="price-error" id="priceError"></div>
+            <button class="price-btn" onclick="submitPrice()">Update Price</button>
+        </div>
+    `;
+}
+
+async function submitPrice() {
+    const input = document.getElementById('priceInput').value;
+    const newPrice = parseFloat(input);
+    const errorEl = document.getElementById('priceError');
+
+    if (!input || isNaN(newPrice) || newPrice <= 0) {
+        errorEl.textContent = 'Price must be a positive number.';
+        return;
+    }
+
+    errorEl.textContent = '';
+    const res = await fetch(`/admin/price?userId=${userId}&newPrice=${newPrice}`, { method: 'POST' });
+
+    if (res.ok) {
+        document.getElementById('currentPrice').textContent = newPrice.toLocaleString() + ' VND';
+        errorEl.style.color = '#27500A';
+        errorEl.textContent = 'Price updated successfully.';
+    } else {
+        errorEl.style.color = '#A32D2D';
+        errorEl.textContent = 'Failed to update price.';
+    }
+}
+
+// ── Slot Config ───────────────────────────────────────
+async function loadSlotConfig() {
+    const res = await fetch(`/admin/slots?userId=${userId}`);
+    const slots = await res.json();
+    renderSlotConfig(slots);
+}
+
+function renderSlotConfig(slots) {
+    const SECTIONS = [
+        { name: 'Section A', range: [1, 50] },
+        { name: 'Section B', range: [51, 100] },
+        { name: 'Section C', range: [101, 150] },
+        { name: 'Section D', range: [151, 200] },
+        { name: 'Section E', range: [201, 250] },
+    ];
+
+    function priorityClass(p) {
+        return { STAFF: 'p-staff', LECTURER: 'p-lecturer', OTHER: 'p-other' }[p] || 'p-other';
+    }
+
+    function priorityShort(p) {
+        return { STAFF: 'STAFF', LECTURER: 'LEC', OTHER: 'OTHER' }[p] || p;
+    }
+
+    let html = `
+        <div class="rt-legend">
+            <div class="rt-legend-item"><div class="rt-legend-dot p-staff-dot"></div> Staff</div>
+            <div class="rt-legend-item"><div class="rt-legend-dot p-lecturer-dot"></div> Lecturer</div>
+            <div class="rt-legend-item"><div class="rt-legend-dot p-other-dot"></div> Other</div>
+        </div>
+    `;
+
+    SECTIONS.forEach(sec => {
+        const sectionSlots = slots.filter(s => s.slotId >= sec.range[0] && s.slotId <= sec.range[1]);
+        html += `<div class="rt-section">
+            <div class="rt-section-header">${sec.name} (${sec.range[0]}&ndash;${sec.range[1]})</div>
+            <div class="rt-grid">
+                ${sectionSlots.map(s => `
+                    <div class="rt-slot ${priorityClass(s.priority)}" title="ID ${s.slotId} &middot; ${s.priority}">
+                        <span class="rt-slot-id">ID: ${s.slotId}</span>
+                        <span class="rt-slot-priority">P: ${priorityShort(s.priority)}</span>
+                    </div>`).join('')}
+            </div>
+        </div>`;
+    });
+
+    document.getElementById('output').innerHTML = html;
+}
+
+async function loadSlotConfig() {
+    const res = await fetch(`/admin/slots?userId=${userId}`);
+    const slots = await res.json();
+
+    document.getElementById('output').innerHTML = `
+        <div class="search-bar">
+            <input type="text" id="slotInput" placeholder="e.g. 5 or 5,6,7 or 5-10" />
+            <select id="prioritySelect">
+                <option value="STAFF">Staff</option>
+                <option value="LECTURER">Lecturer</option>
+                <option value="OTHER">Other</option>
+            </select>
+            <button onclick="applyPriority()">Apply</button>
+        </div>
+        <div class="priority-error" id="priorityError"></div>
+        <div id="slotGrid"></div>
+    `;
+
+    renderSlotConfig(slots);
+}
+
+function parseSlotInput(raw) {
+    const ids = new Set();
+    const parts = raw.split(',').map(s => s.trim()).filter(Boolean);
+
+    for (const part of parts) {
+        if (part.includes('-')) {
+            const [start, end] = part.split('-').map(Number);
+            if (isNaN(start) || isNaN(end) || start > end || start < 1 || end > 250) return null;
+            for (let i = start; i <= end; i++) ids.add(i);
+        } else {
+            const n = Number(part);
+            if (isNaN(n) || n < 1 || n > 250) return null;
+            ids.add(n);
+        }
+    }
+
+    return ids.size > 0 ? [...ids] : null;
+}
+
+async function applyPriority() {
+    const raw = document.getElementById('slotInput').value.trim();
+    const priority = document.getElementById('prioritySelect').value;
+    const errorEl = document.getElementById('priorityError');
+    errorEl.style.color = '#A32D2D';
+
+    const slotIds = parseSlotInput(raw);
+    if (!slotIds) {
+        errorEl.textContent = 'Invalid input. Use: 5 or 5,6,7 or 5-10 (slots 1-250 only).';
+        return;
+    }
+
+    errorEl.textContent = '';
+    const res = await fetch(`/admin/slots/priority/bulk?userId=${userId}&priority=${priority}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(slotIds)
+    });
+
+    if (res.ok) {
+        errorEl.style.color = '#27500A';
+        errorEl.textContent = `Updated ${slotIds.length} slot(s) to ${priority}.`;
+        // refresh grid
+        const slotsRes = await fetch(`/admin/slots?userId=${userId}`);
+        const slots = await slotsRes.json();
+        renderSlotConfig(slots);
+    } else {
+        errorEl.textContent = 'Failed to update slots.';
+    }
+}
+
+function renderSlotConfig(slots) {
+    const target = document.getElementById('slotGrid') || document.getElementById('output');
+    const SECTIONS = [
+        { name: 'Section A', range: [1, 50] },
+        { name: 'Section B', range: [51, 100] },
+        { name: 'Section C', range: [101, 150] },
+        { name: 'Section D', range: [151, 200] },
+        { name: 'Section E', range: [201, 250] },
+    ];
+
+    function priorityClass(p) {
+        return { STAFF: 'p-staff', LECTURER: 'p-lecturer', OTHER: 'p-other' }[p] || 'p-other';
+    }
+
+    function priorityShort(p) {
+        return { STAFF: 'STAFF', LECTURER: 'LEC', OTHER: 'OTHER' }[p] || p;
+    }
+
+    let html = `
+        <div class="rt-legend">
+            <div class="rt-legend-item"><div class="rt-legend-dot p-staff-dot"></div> Staff</div>
+            <div class="rt-legend-item"><div class="rt-legend-dot p-lecturer-dot"></div> Lecturer</div>
+            <div class="rt-legend-item"><div class="rt-legend-dot p-other-dot"></div> Other</div>
+        </div>
+    `;
+
+    SECTIONS.forEach(sec => {
+        const sectionSlots = slots.filter(s => s.slotId >= sec.range[0] && s.slotId <= sec.range[1]);
+        html += `<div class="rt-section">
+            <div class="rt-section-header">${sec.name} (${sec.range[0]}&ndash;${sec.range[1]})</div>
+            <div class="rt-grid">
+                ${sectionSlots.map(s => `
+                    <div class="rt-slot ${priorityClass(s.priority)}" title="ID ${s.slotId} &middot; ${s.priority}">
+                        <span class="rt-slot-id">ID: ${s.slotId}</span>
+                        <span class="rt-slot-priority">P: ${priorityShort(s.priority)}</span>
+                    </div>`).join('')}
+            </div>
+        </div>`;
+    });
+
+    target.innerHTML = html;
+}
+</script>
+
+<style>
+  /* ── Shared ticket styles ── */
+  .ticket-card { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 0; margin-bottom: 12px; max-width: 480px; overflow: hidden; }
+  .ticket-card.ticket-finished   { border-left: 4px solid #3B6D11; }
+  .ticket-card.ticket-unfinished { border-left: 4px solid #A32D2D; }
+  .ticket-status-bar { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.07em; padding: 5px 16px; }
+  .ticket-finished   .ticket-status-bar { background: #d4edda; color: #27500A; }
+  .ticket-unfinished .ticket-status-bar { background: #f8d7da; color: #501313; }
+  .ticket-row { display: flex; align-items: baseline; gap: 10px; margin: 0 16px 6px; font-size: 13px; }
+  .ticket-row:first-of-type { margin-top: 10px; }
+  .ticket-row:last-of-type  { margin-bottom: 12px; }
+  .ticket-label { min-width: 100px; color: #888; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .ticket-value { color: #111; }
+
+  /* ── Search bar ── */
+  .search-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; max-width: 480px; }
+  .search-bar input { flex: 1; padding: 7px 10px; font-size: 13px; border: 1px solid #ccc; border-radius: 6px; outline: none; }
+  .search-bar input:focus { border-color: #888; }
+  .search-bar button { padding: 7px 14px; font-size: 12px; border-radius: 6px; cursor: pointer; border: 1px solid #ccc; background: #fff; color: #333; }
+  .search-bar button:hover { background: #f0f0f0; }
+
+  /* ── Pricing ── */
+  .price-card { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; max-width: 360px; }
+  .price-current { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #f0f0f0; }
+  .price-label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #888; margin-bottom: 4px; }
+  .price-value { font-size: 22px; font-weight: 500; color: #111; }
+  .price-form { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .price-form input { flex: 1; padding: 7px 10px; font-size: 13px; border: 1px solid #ccc; border-radius: 6px; outline: none; }
+  .price-form input:focus { border-color: #888; }
+  .price-unit { font-size: 13px; color: #888; }
+  .price-error { font-size: 12px; color: #A32D2D; min-height: 18px; margin-bottom: 8px; }
+  .price-btn { padding: 7px 18px; font-size: 13px; border-radius: 6px; cursor: pointer; border: 1px solid #333; background: #111; color: #fff; }
+  .price-btn:hover { background: #333; }
+
+  /* ── Slot config (priority colors) ── */
+  .rt-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 1.5rem; font-size: 12px; color: #666; }
+  .rt-legend-item { display: flex; align-items: center; gap: 6px; }
+  .rt-legend-dot { width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.15); }
+  .rt-section { margin-bottom: 1.5rem; }
+  .rt-section-header { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #888; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #e0e0e0; }
+  .rt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 6px; }
+  .rt-slot { border-radius: 6px; border: 1px solid transparent; padding: 6px 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 52px; }
+  .rt-slot-id { font-size: 11px; font-weight: 500; }
+  .rt-slot-priority { font-size: 10px; margin-top: 2px; }
+
+  .p-staff    { background: #e8eaf6; border-color: #3949ab; }
+  .p-staff    .rt-slot-id, .p-staff    .rt-slot-priority { color: #1a237e; }
+  .p-lecturer { background: #e8f5e9; border-color: #388e3c; }
+  .p-lecturer .rt-slot-id, .p-lecturer .rt-slot-priority { color: #1b5e20; }
+  .p-other    { background: #f5f5f5; border-color: #9e9e9e; }
+  .p-other    .rt-slot-id, .p-other    .rt-slot-priority { color: #424242; }
+
+  .p-staff-dot    { background: #e8eaf6; border-color: #3949ab; }
+  .p-lecturer-dot { background: #e8f5e9; border-color: #388e3c; }
+  .p-other-dot    { background: #f5f5f5; border-color: #9e9e9e; }
+
+  .priority-error { font-size: 12px; min-height: 18px; margin-bottom: 10px; }
+  .search-bar select { padding: 7px 10px; font-size: 12px; border-radius: 6px; border: 1px solid #ccc; background: #fff; color: #333; cursor: pointer; }
+</style>
+
+</body>
+</html>

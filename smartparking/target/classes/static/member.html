@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+</head>
+<body>
+
+<h2>Member Dashboard</h2>
+<button onclick="loadHistory()">My Tickets</button>
+<button onclick="goToBKPay()">Pay via BKPay</button>
+
+<div id="output"></div>
+
+<script>
+const userId = sessionStorage.getItem('userId');
+if (!userId) window.location.href = '/login.html';
+
+// ── UC-M1: Ticket history ─────────────────────────────
+async function loadHistory() {
+    const res = await fetch(`/member/history?userId=${userId}`);
+    const tickets = await res.json();
+    renderHistory(tickets);
+}
+
+function renderHistory(tickets) {
+    if (tickets.length === 0) {
+        document.getElementById('output').innerHTML = '<p style="color:#888;font-size:13px;">No tickets found.</p>';
+        return;
+    }
+
+    function formatTime(ts) {
+        return ts ? new Date(ts).toLocaleString() : '—';
+    }
+
+    function formatPrice(val) {
+        return val != null ? val.toLocaleString() + ' VND' : '—';
+    }
+
+    document.getElementById('output').innerHTML = tickets.map(t => `
+        <div class="ticket-card ${t.finished ? 'ticket-finished' : 'ticket-unfinished'}">
+            <div class="ticket-status-bar">${t.finished ? 'Finished' : 'Active'}</div>
+            <div class="ticket-row"><span class="ticket-label">Ticket ID</span><span class="ticket-value">${t.ticketId}</span></div>
+            <div class="ticket-row"><span class="ticket-label">License Plate</span><span class="ticket-value">${t.licensePlate}</span></div>
+            <div class="ticket-row"><span class="ticket-label">Parking Spot</span><span class="ticket-value">${t.parkingSpot || '—'}</span></div>
+            <div class="ticket-row"><span class="ticket-label">Entry Time</span><span class="ticket-value">${formatTime(t.entryTime)}</span></div>
+            <div class="ticket-row"><span class="ticket-label">Exit Time</span><span class="ticket-value">${formatTime(t.exitTime)}</span></div>
+            <div class="ticket-row"><span class="ticket-label">Price</span><span class="ticket-value">${formatPrice(t.price)}</span></div>
+            <div class="ticket-row"><span class="ticket-label">Fee</span><span class="ticket-value">${formatPrice(t.fee)}</span></div>
+        </div>
+    `).join('');
+}
+
+// ── UC-M2: BKPay redirect ─────────────────────────────
+async function goToBKPay() {
+    // keepalive so session stays active while user is on BKPay
+    await fetch(`/member/bkpay/keepalive?userId=${userId}`, { method: 'POST' });
+    // simulate redirect to external BKPay
+    window.location.href = 'https://bkpay.hcmut.edu.vn';
+}
+</script>
+
+<style>
+  .ticket-card { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 0; margin-bottom: 12px; max-width: 480px; overflow: hidden; }
+  .ticket-card.ticket-finished   { border-left: 4px solid #3B6D11; }
+  .ticket-card.ticket-unfinished { border-left: 4px solid #A32D2D; }
+  .ticket-status-bar { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.07em; padding: 5px 16px; }
+  .ticket-finished   .ticket-status-bar { background: #d4edda; color: #27500A; }
+  .ticket-unfinished .ticket-status-bar { background: #f8d7da; color: #501313; }
+  .ticket-row { display: flex; align-items: baseline; gap: 10px; margin: 0 16px 6px; font-size: 13px; }
+  .ticket-row:first-of-type { margin-top: 10px; }
+  .ticket-row:last-of-type  { margin-bottom: 12px; }
+  .ticket-label { min-width: 100px; color: #888; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .ticket-value { color: #111; }
+</style>
+
+</body>
+</html>
