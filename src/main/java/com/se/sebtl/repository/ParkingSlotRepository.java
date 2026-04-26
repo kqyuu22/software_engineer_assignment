@@ -12,6 +12,7 @@ import com.se.sebtl.model.SlotStatus;
 public interface ParkingSlotRepository extends JpaRepository<ParkingSlot, Integer> {
     
     List<ParkingSlot> findByStatus(SlotStatus status);
+    List<ParkingSlot> findAllByOrderBySlotIdAsc();
 
     // This lock physically prevents two concurrent requests from claiming the same spot
     @Lock(LockModeType.PESSIMISTIC_WRITE)

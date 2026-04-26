@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Member Dashboard</title>
+    <style>body { font-family: sans-serif; padding: 20px; } table { width: 100%; border-collapse: collapse; margin-bottom: 20px;} th, td { padding: 10px; border: 1px solid #ccc; text-align: left; } button.pay-btn { padding: 5px 10px; background: #007bff; color: white; border: none; cursor: pointer; }</style>
+    <script src="auth.js"></script>
+</head>
+<body>
+    <h1>Member Dashboard</h1>
+    
+    <h3>My Parking History</h3>
+    <table>
+        <thead><tr><th>Ticket ID</th><th>License Plate</th><th>Entry Time</th><th>Exit Time</th></tr></thead>
+        <tbody id="history-body"></tbody>
+    </table>
+    
+    <h3>My Payments</h3>
+    <table>
+        <thead><tr><th>Date</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody id="payment-body"></tbody>
+    </table>
+
+    <script>
+        // Enforce member role
+        requireAuth("MEMBER");
+        const API_BASE = "http://localhost:8080/member";
+
+        // Global response handler to catch 401 timeouts
+        async function handleResponse(response) {
+            if (!response.ok) {
+                if (response.status === 401) logout();
+                throw new Error("HTTP " + response.status);
+            }
+            return response;
+        }
+
+        async function loadHistory() {
+            
+            const res = await fetch(`${API_BASE}/history`, { headers: authHeaders });
+            await handleResponse(res);
+            const tickets = await res.json();
+
+            console.log("Received tickets: ", tickets);
+
+            if (tickets.length === 0) {
+                document.getElementById("history-body").innerHTML = "<tr><td colspan='4'>No parking history found.</td></tr>";
+                return;
+            }
+
+            if(res.ok) {
+                console.log("Parking history loaded successfully.");
+                let html = "";
+                    tickets.forEach(t => {
+                        html += `<tr><td>${t.ticketId}</td><td>${t.licensePlate}</td><td>${new Date(t.entryTime).toLocaleString()}</td><td>${t.exitTime ? new Date(t.exitTime).toLocaleString() : 'ACTIVE'}</td></tr>`;
+                    });
+                    document.getElementById("history-body").innerHTML = html;
+            } else {
+                console.error("Failed to load parking history.");
+            }
+            
+            
+        }
+
+        async function loadPayments() {
+            try {
+                const res = await fetch(`${API_BASE}/payment`, { headers: authHeaders });
+                await handleResponse(res);
+                const payments = await res.json();
+
+                console.log("Received payments: ", payments);
+                
+                let html = "";
+                payments.forEach(p => {
+                    const isPaid = p.status === "PAID";
+                    const actionCell = isPaid 
+                        ? `<strong style="color:green;">Paid</strong>` 
+                        : `<button class="pay-btn" onclick="executePayment(${p.paymentId})">Pay Now (BKPay)</button>`;
+                        
+                    html += `<tr><td>${p.timestamp ? new Date(p.timestamp).toLocaleString() : 'N/A'}</td><td>$${p.amount}</td><td>${p.status}</td><td>${actionCell}</td></tr>`;
+                });
+                document.getElementById("payment-body").innerHTML = html;
+            } catch (e) { console.error("Failed to load payments"); }
+        }
+
+        async function executePayment(paymentId) {
+            if (!confirm("Redirecting to BKPay. Confirm payment?")) return;
+            
+            try {
+                const res = await fetch(`${API_BASE}/payment/${paymentId}`, { 
+                    method: "POST", 
+                    headers: authHeaders 
+                });
+                await handleResponse(res);
+                
+                const data = await res.json();
+                alert(data.message);
+                loadPayments(); // Reload table to show PAID status
+            } catch (e) { alert("Payment failed."); }
+        }
+
+        window.onload = () => {
+            loadHistory();
+            loadPayments();
+        };
+    </script>
+</body>
+</html>

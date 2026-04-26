@@ -3,6 +3,8 @@ package com.se.sebtl.model;
 import jakarta.persistence.*;
 import java.time.LocalDateTime; // Swapped to modern Java Time API
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 @Entity
 @Table(name = "tickets")
 public class Ticket {
@@ -19,10 +21,12 @@ public class Ticket {
     @Column(name = "role", nullable = false)
     private Role role;
 
-    @Column(name = "entry_time", nullable = false)
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
+    @Column(name = "entry_time", nullable = false, columnDefinition = "TIMESTAMP")
     private LocalDateTime entryTime;
 
-    @Column(name = "exit_time")
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
+    @Column(name = "exit_time", columnDefinition = "TIMESTAMP")
     private LocalDateTime exitTime;
 
     @Column(name = "license_plate", nullable = false)

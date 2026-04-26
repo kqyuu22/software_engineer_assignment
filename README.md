@@ -43,3 +43,5 @@ The simulation allows you to test:
 6. **Dynamic Sign Routing:** When a spot is assigned, the system dynamically updates virtual intersection signs to route the driver.
 7. **Parking Lot Status:** Monitors occupancy to set lot status as `AVAILABLE`, `NEARLY_FULL`, or `FULL`.
 
+## Return format for controllers
+Each controller will return a JSON file

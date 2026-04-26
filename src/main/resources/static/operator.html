@@ -2,122 +2,165 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Parking Slot Tester</title>
+    <title>Operator Dashboard</title>
     <style>
-        body { font-family: sans-serif; margin: 20px; line-height: 1.6; }
-        section { border: 1px solid #ccc; padding: 15px; margin-bottom: 20px; border-radius: 8px; }
-        pre { background: #f4f4f4; padding: 10px; border-radius: 5px; overflow-x: auto; }
-        button { cursor: pointer; padding: 8px 12px; background: #007bff; color: white; border: none; border-radius: 4px; }
+        body { font-family: sans-serif; padding: 20px; background-color: #f8f9fa; }
+        .card { background: white; border: 1px solid #ddd; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        h1, h3 { margin-top: 0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 10px; border: 1px solid #ccc; text-align: left; }
+        th { background-color: #f2f2f2; }
+        button { padding: 8px 15px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
         button:hover { background: #0056b3; }
-        input { padding: 8px; margin-right: 10px; }
+        .btn-success { background: #28a745; }
+        input { padding: 8px; margin-right: 10px; border: 1px solid #ccc; border-radius: 4px;}
+        #alert-banner { display: none; background-color: #ffdddd; color: #d8000c; border: 1px solid #d8000c; padding: 15px; margin-bottom: 20px; border-radius: 8px; }
+        .alert-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #f5c6c6; }
     </style>
+    <script src="auth.js"></script>
 </head>
 <body>
 
-    <h1>🅿️ Parking Slot API Tester</h1>
-    <section>
-        <h2>1. Parking Slots Status</h2>
-        <button onclick="fetchAllSlots()">Refresh List</button>
-        <table border="1" id="slots-table" style="width:100%; margin-top:20px; border-collapse: collapse;">
-            <thead>
-                <tr style="background-color: #f2f2f2;">
-                    <th>ID</th>
-                    <th>Status</th>
-                    <th>Priority</th>
-                </tr>
-            </thead>
-            <tbody id="table-body">
-                </tbody>
+    <h1>Operator Dashboard</h1>
+
+    <div id="alert-banner">
+        <h3>ACTIVE SYSTEM ALERTS</h3>
+        <div id="active-alerts-list"></div>
+    </div>
+
+    <div class="card">
+        <h3>Real-Time Parking Slots</h3>
+        <button onclick="loadSlots()">Refresh Slots</button>
+        <table>
+            <thead><tr><th>Slot ID</th><th>Status</th><th>Priority</th></tr></thead>
+            <tbody id="slots-body"></tbody>
         </table>
-    </section>
+    </div>
 
-    <section>
-        <h2>2. Create New Slot (POST)</h2>
-        <label>Status:</label>
-        <input type="text" id="slotStatus" placeholder="AVAILABLE">
-        <label>Priority:</label>
-        <input type="text" id="slotPriority" placeholder="STAFF">
-        <button onclick="createSlot()">Save Slot</button>
-        <pre id="post-output">Status will appear here...</pre>
-    </section>
+    <div class="card">
+        <h3>Ticket History</h3>
+        <input type="text" id="searchPlate" placeholder="Search Plate, Ticket ID, or User ID..." style="width: 300px;">
+        <button onclick="searchTickets()">Search</button>
+        <button onclick="loadTickets()" style="background: #6c757d;">Clear Search</button>
+        <table>
+            <thead><tr><th>Ticket ID</th><th>User ID</th><th>Plate</th><th>Entry Time</th><th>Exit Time</th><th>Status</th></tr></thead>
+            <tbody id="tickets-body"></tbody>
+        </table>
+    </div>
 
-    <section>
-        <h2>3. Find Slots by Status</h2>
-        <label>Status:</label>
-        <input type="text" id="findStatus" placeholder="AVAILABLE">
-        <button onclick="findSlotsByStatus()">Find Slots</button>
-        <pre id="find-output">Results will appear here...</pre>
-    </section>
+    <div class="card">
+        <h3>Resolved Alert History</h3>
+        <button onclick="loadAlertHistory()">Refresh History</button>
+        <table>
+            <thead><tr><th>Alert ID</th><th>Type</th><th>Message</th><th>Timestamp</th></tr></thead>
+            <tbody id="alert-history-body"></tbody>
+        </table>
+    </div>
 
     <script>
-        const API_URL = "http://localhost:8080/slots";
+        // Centralized auth check
+        requireAuth("OPERATOR");
+        const API_BASE = "http://localhost:8080/operator";
 
-        // GET: Fetch all slots
-async function fetchAllSlots() {
-    const tableBody = document.getElementById('table-body');
-    tableBody.innerHTML = "<tr><td colspan='3'>Loading...</td></tr>"; // Feedback
-
-    try {
-        const response = await fetch(API_URL);
-        const data = await response.json();
-        
-        // Clear previous entries
-        tableBody.innerHTML = "";
-
-        // Render each slot as a table row
-        data.forEach(slot => {
-            const row = `
-                <tr>
-                    <td>${slot.slotId}</td>
-                    <td><span class="status-${slot.status.toLowerCase()}">${slot.status}</span></td>
-                    <td>${slot.priority}</td>
-                </tr>`;
-            tableBody.insertAdjacentHTML('beforeend', row);
-        });
-    } catch (error) {
-        tableBody.innerHTML = `<tr><td colspan='3' style="color:red">Error: ${error.message}</td></tr>`;
-    }
-}
-
-        // POST: Create a slot
-        async function createSlot() {
-            const output = document.getElementById('post-output');
-            const status = document.getElementById('slotStatus').value;
-            const priority = document.getElementById('slotPriority').value;
-
-            const payload = {
-                status: status,
-                priority: priority
-            };
-
+        // Bulletproof array fetcher
+        async function safeFetchArray(url) {
             try {
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                console.log(`Fetching from ${url} with headers:`, authHeaders);
+                const response = await fetch(url, { headers: authHeaders });
+                
+                await handleResponse(response)
+
+                const data = await response.json();
+                return Array.isArray(data) ? data : [];
+            } catch (error) {
+                console.error(`Fetch error at ${url}:`, error);
+                return [];
+            }
+        }
+
+        async function loadActiveAlerts() {
+            const alerts = await safeFetchArray(`${API_BASE}/alerts/active`);
+            const banner = document.getElementById("alert-banner");
+            const list = document.getElementById("active-alerts-list");
+            console.log("Active alerts: ", alerts);
+            
+
+
+            if (alerts.length > 0) {
+                banner.style.display = "block";
+                let html = "";
+                alerts.forEach(a => {
+                    html += `<div class="alert-item">
+                                <div><strong>${a.type}</strong>: ${a.message} <em>(${new Date(a.timestamp).toLocaleString()})</em></div>
+                                <button class="btn-success" onclick="resolveAlert(${a.alertId})">Resolve</button>
+                            </div>`;
                 });
-                const data = await response.json();
-                output.textContent = "Success: " + JSON.stringify(data, null, 2);
-                fetchAllSlots(); // Refresh the list automatically
-            } catch (error) {
-                output.textContent = "Error: " + error.message;
+                list.innerHTML = html;
+            } else {
+                banner.style.display = "none";
             }
         }
 
-        // GET: Find slots by status
-        async function findSlotsByStatus() {
-            const output = document.getElementById('find-output');
-            const status = document.getElementById('findStatus').value;
-
+        async function resolveAlert(alertId) {
             try {
-                const response = await fetch(`${API_URL}/status/${status}`);
-                const data = await response.json();
-                output.textContent = "Results: " + JSON.stringify(data, null, 2);
-            } catch (error) {
-                output.textContent = "Error: " + error.message;
-            }
+                const response = await fetch(`${API_BASE}/alerts/${alertId}/resolve`, { 
+                    method: "PATCH", 
+                    headers: authHeaders 
+                });
+                if (response.ok) {
+                    alert(await response.text());
+                    loadActiveAlerts(); 
+                    loadAlertHistory(); 
+                } else alert("Failed to resolve alert.");
+            } catch (e) { console.error("Resolve error", e); }
         }
+
+        async function loadAlertHistory() {
+            const alerts = await safeFetchArray(`${API_BASE}/alerts/history`);
+            let html = "";
+            alerts.forEach(a => {
+                html += `<tr><td>${a.alertId}</td><td>${a.type}</td><td>${a.message}</td><td>${new Date(a.timestamp).toLocaleString()}</td></tr>`;
+            });
+            document.getElementById("alert-history-body").innerHTML = html;
+        }
+
+        async function loadSlots() {
+            const slots = await safeFetchArray(`${API_BASE}/slots`);
+            let html = "";
+            slots.forEach(s => {
+                html += `<tr><td>${s.slotId}</td><td><strong>${s.status}</strong></td><td>${s.priority}</td></tr>`;
+            });
+            document.getElementById("slots-body").innerHTML = html;
+        }
+
+        async function loadTickets() {
+            document.getElementById("searchPlate").value = ""; 
+            renderTickets(await safeFetchArray(`${API_BASE}/history`));
+        }
+
+        async function searchTickets() {
+            const query = document.getElementById("searchPlate").value.trim();
+            if (!query) return loadTickets();
+            console.log(`Searching tickets for: ${query}`);
+            renderTickets(await safeFetchArray(`${API_BASE}/history/search?query=${query}`));
+        }
+
+        function renderTickets(tickets) {
+            let html = "";
+            tickets.forEach(t => {
+                const status = t.finished ? "Finished" : "Active";
+                html += `<tr><td>${t.ticketId}</td><td>${t.userId}</td><td>${t.licensePlate}</td><td>${new Date(t.entryTime).toLocaleString()}</td><td>${t.exitTime ? new Date(t.exitTime).toLocaleString() : '-'}</td><td>${status}</td></tr>`;
+            });
+            document.getElementById("tickets-body").innerHTML = html;
+        }
+
+        window.onload = () => {
+            loadActiveAlerts();
+            loadSlots();
+            loadTickets();
+            loadAlertHistory();
+            setInterval(() => { loadActiveAlerts(); loadSlots(); }, 10000);
+        };
     </script>
 </body>
 </html>

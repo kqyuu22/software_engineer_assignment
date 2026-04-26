@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>SEBTL Login</title>
+    <style>
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f4f4f4; }
+        .login-box { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); width: 300px; text-align: center; }
+        input { width: 90%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; }
+        button { width: 100%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        #error { color: red; font-size: 0.9em; display: none; }
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <h2>System Login</h2>
+        <input type="text" id="username" placeholder="Username">
+        <input type="password" id="password" placeholder="Password">
+        <p id="error">Invalid credentials</p>
+        <button onclick="login()">Login</button>
+    </div>
+
+    <script>
+        async function login() {
+            const u = document.getElementById('username').value;
+            const p = document.getElementById('password').value;
+            
+            const response = await fetch("http://localhost:8080/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username: u, password: p })
+            });
+
+            console.log("Received response: ", response);
+
+            if (response.ok) {
+                const data = await response.json();
+                
+                // SAVE THE TOKEN TO LOCAL STORAGE
+                sessionStorage.setItem("sebtl_token", data.token);
+                sessionStorage.setItem("sebtl_role", data.role);
+
+                // Redirect based on Role
+                if (data.role === "ADMIN") window.location.href = "admin.html";
+                else if (data.role === "MEMBER") window.location.href = "member.html";
+                else if (data.role === "OPERATOR") window.location.href = "operator.html";
+                else alert("Unexpected role.");
+                
+            } else {
+                document.getElementById('error').style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>
