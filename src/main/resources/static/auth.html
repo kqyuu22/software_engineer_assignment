@@ -22,8 +22,14 @@
 
     <script>
         if (sessionStorage) {
-            // Clear any existing session on page load to ensure a fresh login
-            sessionStorage.clear();
+            const token = sessionStorage.getItem("sebtl_token");
+            const role = sessionStorage.getItem("sebtl_role");
+            if (token && role) {
+                if (role === "ADMIN") window.location.href = "admin.html";
+                else if (role === "MEMBER") window.location.href = "member.html";
+                else if (role === "OPERATOR") window.location.href = "operator.html";
+                else console.warn("Unexpected role in session storage.");
+            }
         }
 
         async function login() {
@@ -46,9 +52,9 @@
                 sessionStorage.setItem("sebtl_role", data.role);
 
                 // Redirect based on Role
-                if (data.role === "ADMIN") window.location.href = "admin.html";
-                else if (data.role === "MEMBER") window.location.href = "member.html";
-                else if (data.role === "OPERATOR") window.location.href = "operator.html";
+                if (data.role === "ADMIN") window.location.href = "/admin";
+                else if (data.role === "MEMBER") window.location.href = "/member";
+                else if (data.role === "OPERATOR") window.location.href = "/operator";
                 else alert("Unexpected role.");
                 
             } else {

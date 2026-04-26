@@ -19,6 +19,11 @@ public class AuthController {
         this.userRepository = userRepository;
     }
 
+    @GetMapping("/")
+    public String showLoginPage() {
+        return "forward:/auth.html";
+    }
+
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
         Optional<AppUser> userOpt = userRepository.findByUsername(request.getUsername());

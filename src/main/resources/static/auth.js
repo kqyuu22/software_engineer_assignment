@@ -18,7 +18,7 @@ function requireAuth(expectedRole) {
 
 function logout() {
     sessionStorage.clear();
-    window.location.href = "auth.html";
+    window.location.href = "/login";
 }
 
 // Automatically inject a logout button into the body

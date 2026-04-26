@@ -4,8 +4,10 @@
 1. find src/main/java/com/se/sebtl/SebtlApplication.java and click Run
 2. mvn spring-boot:run on command line
 
--> Access [localhost:8080](http://localhost:8080)
--> Currently only a demo test for [localhost:8080/operator.html](http://localhost:8080/operator.html)
+-> Access http://localhost:8080
+-> It automatically redirect you to http://localhost:8080/login and serve `auth.html`
+-> Currently Support: /member, /operator, /admin
+-> Still Developing: a page for simulation 
 
 ## Currently: Only cover a demo for
 ```
