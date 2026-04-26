@@ -21,6 +21,11 @@
     </div>
 
     <script>
+        if (sessionStorage) {
+            // Clear any existing session on page load to ensure a fresh login
+            sessionStorage.clear();
+        }
+
         async function login() {
             const u = document.getElementById('username').value;
             const p = document.getElementById('password').value;

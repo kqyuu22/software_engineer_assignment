@@ -1,6 +1,11 @@
 package com.se.sebtl.service;
 
 import com.se.sebtl.exception.*;
+import com.se.sebtl.model.AppUser;
+import com.se.sebtl.model.AppRole;
+import com.se.sebtl.repository.AppUserRepository;
+
+import org.springframework.stereotype.Service;
 
 @Service
 public class SecurityService {
@@ -10,7 +15,7 @@ public class SecurityService {
         this.userDb = userDb;
     }
 
-    public AppUser verifyRole(String token, String expectedRole) {
+    public AppUser verifyRole(String token, AppRole expectedRole) {
         if (token == null || !token.startsWith("Bearer ")) {
             throw new InvalidTokenException("Invalid or missing token");
         }
@@ -18,8 +23,8 @@ public class SecurityService {
         AppUser user = userDb.findById(userId)
                 .orElseThrow(() -> new AccessDeniedException("User not found for token: " + token));
 
-        if (!user.getRole().toString().equals(expectedRole)) {
-            throw new AccessDeniedException("User " + user.getId() + " does not have the required role: " + expectedRole);
+        if (!user.getRole().equals(expectedRole)) {
+            throw new AccessDeniedException("User " + user.getUserId() + " does not have the required role: " + expectedRole);
         }
         return user;
     }

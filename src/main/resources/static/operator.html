@@ -29,15 +29,6 @@
     </div>
 
     <div class="card">
-        <h3>Real-Time Parking Slots</h3>
-        <button onclick="loadSlots()">Refresh Slots</button>
-        <table>
-            <thead><tr><th>Slot ID</th><th>Status</th><th>Priority</th></tr></thead>
-            <tbody id="slots-body"></tbody>
-        </table>
-    </div>
-
-    <div class="card">
         <h3>Ticket History</h3>
         <input type="text" id="searchPlate" placeholder="Search Plate, Ticket ID, or User ID..." style="width: 300px;">
         <button onclick="searchTickets()">Search</button>
@@ -57,6 +48,17 @@
         </table>
     </div>
 
+    <div class="card">
+        <h3>Real-Time Parking Slots</h3>
+        <button onclick="loadSlots()">Refresh Slots</button>
+        <table>
+            <thead><tr><th>Slot ID</th><th>Status</th><th>Priority</th></tr></thead>
+            <tbody id="slots-body"></tbody>
+        </table>
+    </div>
+
+    
+
     <script>
         // Centralized auth check
         requireAuth("OPERATOR");
@@ -67,6 +69,7 @@
             try {
                 const response = await fetch(url, { headers: authHeaders });
                 console.log(`API Response from ${url}:`, response);
+                
                 await handleResponse(response)
 
                 const data = await response.json();
