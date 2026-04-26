@@ -204,10 +204,18 @@
         }
 
         // Initialize dashboard
-        window.onload = () => {
-            loadPrice();
-            loadTickets();
-            loadSlots(); // Load slots when the page first opens
+        window.onload = async () => {
+            try {
+                // We 'await' each one so they finish in a specific order
+                await loadPrice();
+                await loadTickets();
+                await loadSlots();
+                
+                console.log("All data loaded successfully");
+            } catch (error) {
+                console.error("One of the fetches failed:", error);
+                // This is a great place to show a 'Global Error' message to the user
+            }
         };
 
         // --- BULK SLOTS ---

@@ -1,34 +1,22 @@
 ## Run the app
 
-
 1. find src/main/java/com/se/sebtl/SebtlApplication.java and click Run
 2. mvn spring-boot:run on command line
 
--> Access http://localhost:8080
--> It automatically redirect you to http://localhost:8080/login and serve `auth.html`
--> Currently Support: /member, /operator, /admin
--> Still Developing: a page for simulation 
+&rarr; Access http://localhost:8080
 
-## Currently: Only cover a demo for
-```
-OperatorController.java
-ParkingSlot.java
-ParkingSlotRepository.java
-operator.html
-```
-## What to do ?
-**Frontend**: `operator.html` is a mockup frontend, later we can use React to handle the same logic (read the route and return json in the controller). Note that you can add a mockup frontend just like this, and implement React later.
+&rarr; It automatically redirect you to http://localhost:8080/login and serve `auth.html`
 
-**Controller**: `AdminController.java`, `LoginController.java`, `MemberController.java`. Note that you can add more database query logic in repository/, add more repositories and tables in repository/ and model/, but don't remove anything.
+&rarr; Currently Support: /member, /operator, /admin
 
-**Database and Backend:** There are some missing logic regarding
-- Alert
-- Payment
-- Entry Simulation (such as scan card, scan license plate, etc)
-- Local Queue
-- Maybe more if i remember
+&rarr; Still Developing: a page for simulation
 
-## How to run the Simulation
+## Currently Lacking...
+**Frontend**: ***READ `FRONTEND.md`***. This currently covers mockup frontend, later we can use React to handle the same logic (read the route and return json in the controller). Note that you can add a mockup frontend just like this, and implement React later.
+
+**Simulation**: We currently lack Entry and Exit Simulation, and also Controller for their UIs.
+
+## How to run the current Simulation
 
 The application includes a command-line simulation (`SimulationRunner.java`) that starts automatically when you run the Spring Boot app. It provides an interactive CLI menu to test the parking system hardware interactions and system logic without the need for physical sensors or frontend applications.
 
@@ -44,6 +32,3 @@ The simulation allows you to test:
 5. **Fix Sensor:** Simulates an operator or technician fixing a broken sensor, restoring its functionality and resetting its state.
 6. **Dynamic Sign Routing:** When a spot is assigned, the system dynamically updates virtual intersection signs to route the driver.
 7. **Parking Lot Status:** Monitors occupancy to set lot status as `AVAILABLE`, `NEARLY_FULL`, or `FULL`.
-
-## Return format for controllers
-Each controller will return a JSON file

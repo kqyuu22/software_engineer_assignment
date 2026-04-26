@@ -3,6 +3,7 @@ package com.se.sebtl.controller;
 import com.se.sebtl.model.Payment;
 import com.se.sebtl.model.Ticket;
 import com.se.sebtl.model.MessageResponse;
+import com.se.sebtl.service.SecurityService;
 import com.se.sebtl.repository.TicketRepository;
 import com.se.sebtl.repository.PaymentRepository;
 import org.springframework.http.ResponseEntity;
@@ -18,15 +19,17 @@ public class MemberController {
 
     private final TicketRepository ticketDb;
     private final PaymentRepository paymentDb;
+    private final SecurityService securityService;
 
-    public MemberController(TicketRepository ticketDb, PaymentRepository paymentDb) {
+    public MemberController(TicketRepository ticketDb, PaymentRepository paymentDb, SecurityService securityService) {
         this.ticketDb = ticketDb;
         this.paymentDb = paymentDb;
+        this.securityService = securityService;
     }
 
     @GetMapping("/history")
     public ResponseEntity<List<Ticket>> getHistory(@RequestHeader("Authorization") String token) {
-        int userId = extractUserIdFromToken(token);
+        int userId = securityService.getUserIdFromToken(token);
         
         return ResponseEntity.ok(ticketDb.findByUserIdOrderByEntryTimeDesc(userId));
     }
@@ -34,13 +37,13 @@ public class MemberController {
     // --- PAYMENTS ---
     @GetMapping("/payment")
     public ResponseEntity<List<Payment>> getPayments(@RequestHeader("Authorization") String token) {
-        int userId = extractUserIdFromToken(token);
+        int userId = securityService.getUserIdFromToken(token);
         return ResponseEntity.ok(paymentDb.findByUserIdOrderByTimestampDesc(userId));
     }
 
     @PostMapping("/payment/{paymentId}")
     public ResponseEntity<MessageResponse> payFee(@RequestHeader("Authorization") String token, @PathVariable Integer paymentId) {
-        int userId = extractUserIdFromToken(token);
+        int userId = securityService.getUserIdFromToken(token);
         
         Optional<Payment> paymentOpt = paymentDb.findById(paymentId);
         if (paymentOpt.isPresent()) {
@@ -56,10 +59,5 @@ public class MemberController {
             return ResponseEntity.ok(new MessageResponse("Payment successful."));
         }
         return ResponseEntity.notFound().build();
-    }
-
-    // Helper method to simulate decoding a JWT token
-    private int extractUserIdFromToken(String token) {
-        return Integer.parseInt(token.replace("Bearer ", ""));
     }
 }

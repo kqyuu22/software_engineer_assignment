@@ -4,12 +4,13 @@ import com.se.sebtl.model.*;
 import com.se.sebtl.repository.*;
 import com.se.sebtl.service.SecurityService;
 import com.se.sebtl.service.ParkingService;
-import com.se.sebtl.model.MessageResponse;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Collections;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/admin")
@@ -92,10 +93,13 @@ public class AdminController {
     // --- PRICE MANAGEMENT ---
 
     @GetMapping("/price")
-    public ResponseEntity<Double> getPrice(@RequestHeader("Authorization") String token) {
+    public ResponseEntity<Map<String, Double>> getPrice(@RequestHeader("Authorization") String token) {
         securityService.verifyRole(token, AppRole.ADMIN);
+        
         Price price = priceDb.findById(1).orElse(null);
-        return ResponseEntity.ok(price != null ? price.getPrice() : 5000.0); // Default price if not set
+        Double value = (price != null) ? price.getPrice() : 5000.0;
+
+        return ResponseEntity.ok(Collections.singletonMap("price", value));
     }
 
     @PutMapping("/price")

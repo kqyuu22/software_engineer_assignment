@@ -28,4 +28,8 @@ public class SecurityService {
         }
         return user;
     }
+
+    public int getUserIdFromToken(String token) {
+        return Integer.parseInt(token.replace("Bearer ", ""));
+    }
 }

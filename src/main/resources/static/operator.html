@@ -162,11 +162,16 @@
             document.getElementById("tickets-body").innerHTML = html;
         }
 
-        window.onload = () => {
-            loadActiveAlerts();
-            loadSlots();
-            loadTickets();
-            loadAlertHistory();
+        window.onload = async () => {
+            try {
+                await loadActiveAlerts();
+                await loadSlots();
+                await loadTickets();
+                await loadAlertHistory();
+                console.log("Initial data loaded successfully.");
+            } catch (error) {
+                console.error("One of the fetches failed:", error);
+            }
             setInterval(() => { loadActiveAlerts(); loadSlots(); }, 10000); // Auto-refresh every 10 seconds
         };
     </script>

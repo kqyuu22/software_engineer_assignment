@@ -10,7 +10,7 @@ function requireAuth(expectedRole) {
         throw new Error("No token found. Redirecting to login.");
     }
     if (expectedRole && role !== expectedRole) {
-        alert("Unauthorized access. Redirecting.");
+        showErrorToast("Unauthorized access. Redirecting to login.");
         logout();
         throw new Error("Invalid Role.");
     }
@@ -64,7 +64,7 @@ function showErrorToast(message) {
 async function handleResponse(response) {
     if (!response.ok) {
         if (response.status === 401) {
-            alert("Missing or bad authentication. Please log in again.");
+            showErrorToast("Missing or bad authentication. Please log in again.");
             logout();
             return;
         }

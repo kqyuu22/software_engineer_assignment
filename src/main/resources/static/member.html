@@ -91,9 +91,9 @@
             } catch (e) { alert("Payment failed."); }
         }
 
-        window.onload = () => {
-            loadHistory();
-            loadPayments();
+        window.onload = async () => {
+            await loadHistory();
+            await loadPayments();
         };
     </script>
 </body>
