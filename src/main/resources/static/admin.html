@@ -18,17 +18,28 @@
     <script src="auth.js"></script>
 </head>
 <body>
-    <h1>⚙️ Admin Control Panel</h1>
+    <h1>Admin Control Panel</h1>
 
     <div class="card">
-        <h3>💰 Global Pricing Management</h3>
+        <h3>Global Pricing Management</h3>
         <p>Current System Price: $<span id="current-price" style="font-weight: bold;">Loading...</span></p>
         <input type="number" id="newPrice" placeholder="Enter new price">
         <button onclick="updatePrice()">Update Global Price</button>
     </div>
 
     <div class="card">
-        <h3>📍 Slot Management & Bulk Assignment</h3>
+        <h3>Ticket History</h3>
+        <input type="text" id="searchPlate" placeholder="Search Plate, Ticket ID, or User ID..." style="width: 300px;">
+        <button onclick="searchTickets()">Search</button>
+        <button onclick="loadTickets()" style="background: #6c757d;">Clear Search</button>
+        <table>
+            <thead><tr><th>Ticket ID</th><th>User ID</th><th>Plate</th><th>Entry Time</th><th>Exit Time</th><th>Status</th></tr></thead>
+            <tbody id="tickets-body"></tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <h3>Slot Management & Bulk Assignment</h3>
         
         <div style="margin-bottom: 15px;">
             <strong>Add Single Slot:</strong>
@@ -66,22 +77,27 @@
         </table>
     </div>
 
-    <div class="card">
-        <h3>📜 Advanced Ticket Management</h3>
-        <button onclick="loadTickets()">Refresh Tickets</button>
-        <table>
-            <thead>
-                <tr>
-                    <th>Ticket ID</th><th>User ID</th><th>Plate</th><th>Status</th><th>Fee</th><th>Admin Actions</th>
-                </tr>
-            </thead>
-            <tbody id="tickets-body"></tbody>
-        </table>
-    </div>
+    
 
     <script>
         requireAuth("ADMIN");
         const API_BASE = "http://localhost:8080/admin";
+
+        // Bulletproof array fetcher
+        async function safeFetchArray(url) {
+            try {
+                const response = await fetch(url, { headers: authHeaders });
+                console.log(`API Response from ${url}:`, response);
+                
+                await handleResponse(response)
+
+                const data = await response.json();
+                return Array.isArray(data) ? data : [];
+            } catch (error) {
+                console.error(`Fetch error at ${url}:`, error);
+                return [];
+            }
+        }
 
         // --- PRICING ---
         async function loadPrice() {
@@ -214,31 +230,26 @@
 
 
         // --- TICKETS ---
+        
         async function loadTickets() {
-            try {
-                const res = await fetch(`${API_BASE}/history`, { headers: authHeaders });
-                console.log("Tickets API Response:", res);
-                await handleResponse(res);
-                const tickets = await res.json();
-                
-                let html = "";
-                tickets.forEach(t => {
-                    const status = t.finished ? `<strong style="color:green;">Closed</strong>` : `<strong style="color:orange;">Active</strong>`;
-                    
-                    // Build Action Buttons based on status
-                    let actionHtml = `
-                        <button class="btn-warning" onclick="adminAction('waive', ${t.ticketId})" ${t.fee === 0 ? 'disabled' : ''}>Waive Fee</button>
-                        <button class="btn-danger" onclick="adminAction('delete', ${t.ticketId})">Delete</button>
-                    `;
-                    
-                    if (!t.finished) {
-                        actionHtml = `<button class="btn-success" onclick="adminAction('force-close', ${t.ticketId})">Force Close</button> ` + actionHtml;
-                    }
+            document.getElementById("searchPlate").value = ""; 
+            renderTickets(await safeFetchArray(`${API_BASE}/history`));
+        }
 
-                    html += `<tr><td>${t.ticketId}</td><td>${t.userId}</td><td>${t.licensePlate}</td><td>${status}</td><td>$${t.fee}</td><td>${actionHtml}</td></tr>`;
-                });
-                document.getElementById("tickets-body").innerHTML = html;
-            } catch (e) { }
+        async function searchTickets() {
+            const query = document.getElementById("searchPlate").value.trim();
+            if (!query) return loadTickets();
+            console.log(`Searching tickets for: ${query}`);
+            renderTickets(await safeFetchArray(`${API_BASE}/history/search?query=${query}`));
+        }
+
+        function renderTickets(tickets) {
+            let html = "";
+            tickets.forEach(t => {
+                const status = t.finished ? "Finished" : "Active";
+                html += `<tr><td>${t.ticketId}</td><td>${t.userId}</td><td>${t.licensePlate}</td><td>${new Date(t.entryTime).toLocaleString()}</td><td>${t.exitTime ? new Date(t.exitTime).toLocaleString() : '-'}</td><td>${status}</td></tr>`;
+            });
+            document.getElementById("tickets-body").innerHTML = html;
         }
 
         async function adminAction(actionType, ticketId) {
