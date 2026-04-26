@@ -83,20 +83,11 @@
         requireAuth("ADMIN");
         const API_BASE = "http://localhost:8080/admin";
 
-        async function handleResponse(response) {
-            if (!response.ok) {
-                if (response.status === 401) logout();
-                const err = await response.json().catch(() => ({}));
-                showErrorToast(err.message || "System error occurred.");
-                throw new Error("HTTP " + response.status);
-            }
-            return response;
-        }
-
         // --- PRICING ---
         async function loadPrice() {
             try {
                 const res = await fetch(`${API_BASE}/price`, { headers: authHeaders });
+                console.log("Price API Response:", res);
                 await handleResponse(res);
                 document.getElementById("current-price").innerText = await res.text();
             } catch (e) { }
@@ -107,6 +98,7 @@
             if (!p) return;
             try {
                 const res = await fetch(`${API_BASE}/price?newPrice=${p}`, { method: "PUT", headers: authHeaders });
+                console.log("Update Price API Response:", res);
                 await handleResponse(res);
                 alert((await res.json()).message);
                 loadPrice();
@@ -119,6 +111,7 @@
         async function loadSlots() {
             try {
                 const res = await fetch(`${API_BASE}/slots`, { headers: authHeaders });
+                console.log("Slots API Response:", res);
                 await handleResponse(res);
                 const slots = await res.json();
                 
@@ -143,6 +136,7 @@
                     method: "POST",
                     headers: authHeaders
                 });
+                console.log("Add Slot API Response:", res);
                 await handleResponse(res);
                 showErrorToast((await res.json()).message); // Using toast for success messages too!
                 loadSlots(); // <--- REFRESH THE TABLE AUTOMATICALLY
@@ -158,6 +152,7 @@
                     method: "DELETE",
                     headers: authHeaders
                 });
+                console.log("Delete Slot API Response:", res);
                 await handleResponse(res);
                 showErrorToast((await res.json()).message);
                 loadSlots(); // <--- REFRESH THE TABLE AUTOMATICALLY
@@ -183,6 +178,7 @@
                     headers: authHeaders,
                     body: JSON.stringify({ slotIds: slotArray, priority: priority })
                 });
+                console.log("Bulk Update Slots API Response:", res);
                 await handleResponse(res);
                 showErrorToast((await res.json()).message);
                 
@@ -221,6 +217,7 @@
         async function loadTickets() {
             try {
                 const res = await fetch(`${API_BASE}/history`, { headers: authHeaders });
+                console.log("Tickets API Response:", res);
                 await handleResponse(res);
                 const tickets = await res.json();
                 
@@ -250,6 +247,8 @@
             let method = "PATCH";
             let url = `${API_BASE}/tickets/${ticketId}/${actionType}`;
 
+            console.log(`Tickets API Request: ${method} ${url}`);
+
             if (actionType === 'delete') {
                 method = "DELETE";
                 url = `${API_BASE}/tickets/${ticketId}`;
@@ -257,6 +256,7 @@
 
             try {
                 const res = await fetch(url, { method: method, headers: authHeaders });
+                console.log("Tickets API Response:", res);
                 await handleResponse(res);
                 alert((await res.json()).message);
                 loadTickets(); // Refresh table

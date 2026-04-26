@@ -2,6 +2,7 @@ package com.se.sebtl.controller;
 
 import com.se.sebtl.model.Payment;
 import com.se.sebtl.model.Ticket;
+import com.se.sebtl.model.MessageResponse;
 import com.se.sebtl.repository.TicketRepository;
 import com.se.sebtl.repository.PaymentRepository;
 import org.springframework.http.ResponseEntity;
@@ -38,7 +39,7 @@ public class MemberController {
     }
 
     @PostMapping("/payment/{paymentId}")
-    public ResponseEntity<?> payFee(@RequestHeader("Authorization") String token, @PathVariable Integer paymentId) {
+    public ResponseEntity<MessageResponse> payFee(@RequestHeader("Authorization") String token, @PathVariable Integer paymentId) {
         int userId = extractUserIdFromToken(token);
         
         Optional<Payment> paymentOpt = paymentDb.findById(paymentId);
@@ -46,13 +47,13 @@ public class MemberController {
             Payment payment = paymentOpt.get();
             // Make sure this payment actually belongs to the user trying to pay it
             if (!payment.getUserId().equals(userId)) {
-                return ResponseEntity.status(403).body("{\"message\": \"Forbidden\"}");
+                return ResponseEntity.status(403).body(new MessageResponse("Forbidden"));
             }
             
             payment.setStatus("PAID"); // Change status
             payment.setTimestamp(java.time.LocalDateTime.now()); // Update timestamp to now
             paymentDb.save(payment);
-            return ResponseEntity.ok("{\"message\": \"Payment successful.\"}");
+            return ResponseEntity.ok(new MessageResponse("Payment successful."));
         }
         return ResponseEntity.notFound().build();
     }
