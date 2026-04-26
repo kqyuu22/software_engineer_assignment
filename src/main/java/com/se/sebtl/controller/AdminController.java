@@ -2,6 +2,9 @@ package com.se.sebtl.controller;
 
 import com.se.sebtl.model.*;
 import com.se.sebtl.repository.*;
+import com.se.sebtl.service.SecurityService;
+import com.se.sebtl.model.MessageResponse;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,110 +19,126 @@ public class AdminController {
     private final TicketRepository ticketDb;
     private final ParkingSlotRepository slotDb;
     private final PriceRepository priceDb;
+    private final SecurityService securityService;
 
-    public AdminController(TicketRepository ticketDb, ParkingSlotRepository slotDb, PriceRepository priceDb) {
+    public AdminController(TicketRepository ticketDb, ParkingSlotRepository slotDb, PriceRepository priceDb, SecurityService securityService) {
         this.ticketDb = ticketDb;
         this.slotDb = slotDb;
         this.priceDb = priceDb;
+        this.securityService = securityService;
     }
+
+    // --- TICKET MANAGEMENT ---
 
     @GetMapping("/history")
     public ResponseEntity<List<Ticket>> getHistory(@RequestHeader("Authorization") String token) {
+        securityService.verifyRole(token, Role.ADMIN);
         return ResponseEntity.ok(ticketDb.findAllByOrderByEntryTimeDesc());
     }
 
     @GetMapping("/history/search")
     public ResponseEntity<List<Ticket>> searchHistory(@RequestHeader("Authorization") String token, 
                                                       @RequestParam String plate) {
+        securityService.verifyRole(token, Role.ADMIN);
         return ResponseEntity.ok(ticketDb.findByLicensePlateContainingIgnoreCaseOrderByEntryTimeDesc(plate));
+    }
+
+    @PatchMapping("/tickets/{ticketId}/waive")
+    public ResponseEntity<MessageResponse> waiveTicketFee(@RequestHeader("Authorization") String token, 
+                                            @PathVariable int ticketId) {
+        securityService.verifyRole(token, Role.ADMIN);
+        return ticketDb.findById(ticketId).map(ticket -> {
+            ticket.setFee(0.0);
+            ticketDb.save(ticket);
+            return ResponseEntity.ok(new MessageResponse("Fee waived for ticket " + ticketId + "."));
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    @DeleteMapping("/tickets/{ticketId}")
+    public ResponseEntity<MessageResponse> deleteTicket(@RequestHeader("Authorization") String token, 
+                                          @PathVariable int ticketId) {
+        securityService.verifyRole(token, Role.ADMIN);
+        if (!ticketDb.existsById(ticketId)) {
+            return ResponseEntity.notFound().build();
+        }
+        ticketDb.deleteById(ticketId);
+        return ResponseEntity.ok(new MessageResponse("Ticket " + ticketId + " permanently deleted."));
+    }
+
+    @PatchMapping("/tickets/{ticketId}/force-close")
+    public ResponseEntity<MessageResponse> forceCloseTicket(@RequestHeader("Authorization") String token, 
+                                              @PathVariable int ticketId) {
+        securityService.verifyRole(token, Role.ADMIN);
+        return ticketDb.findById(ticketId).map(ticket -> {
+            if (ticket.getFinished()) {
+                return ResponseEntity.badRequest().body(new MessageResponse("Ticket is already closed."));
+            }
+            ticket.finish(); // Stamps exitTime and sets finished to true
+            ticketDb.save(ticket);
+            return ResponseEntity.ok(new MessageResponse("Ticket " + ticketId + " forced closed."));
+        }).orElse(ResponseEntity.notFound().build());
     }
 
     // --- SLOT MANAGEMENT ---
 
     @GetMapping("/slots")
     public ResponseEntity<List<ParkingSlot>> getAllSlots(@RequestHeader("Authorization") String token) {
-        // verifyAdminRole(token); // (Uncomment if you added the security helper)
+        securityService.verifyRole(token, Role.ADMIN);
         
-        // It's best to return these sorted by ID so the table stays neat
         return ResponseEntity.ok(slotDb.findAllByOrderBySlotIdAsc()); 
     }
 
     @PostMapping("/slots")
-    public ResponseEntity<?> addSlot(@RequestHeader("Authorization") String token, 
+    public ResponseEntity<MessageResponse> addSlot(@RequestHeader("Authorization") String token, 
                                      @RequestParam Role priority) {
+        securityService.verifyRole(token, Role.ADMIN);
         ParkingSlot newSlot = new ParkingSlot();
         newSlot.setPriority(priority);
         newSlot.setStatus(SlotStatus.AVAILABLE);
         slotDb.save(newSlot);
-        return ResponseEntity.ok("{\"message\": \"Slot successfully added\"}");
+        return ResponseEntity.ok(new MessageResponse("Slot successfully added"));
     }
 
     @DeleteMapping("/slots/{slotId}")
-    public ResponseEntity<?> removeSlot(@RequestHeader("Authorization") String token, 
+    public ResponseEntity<MessageResponse> removeSlot(@RequestHeader("Authorization") String token, 
                                         @PathVariable int slotId) {
-        slotDb.deleteById(slotId);
-        return ResponseEntity.ok("{\"message\": \"Slot successfully removed\"}");
-    }
-
-    @PatchMapping("/tickets/{ticketId}/force-close")
-    public ResponseEntity<?> forceCloseTicket(@RequestHeader("Authorization") String token, 
-                                              @PathVariable int ticketId) {
-        return ticketDb.findById(ticketId).map(ticket -> {
-            if (ticket.getFinished()) {
-                return ResponseEntity.badRequest().body("{\"message\": \"Ticket is already closed.\"}");
-            }
-            ticket.finish(); // Stamps exitTime and sets finished to true
-            ticketDb.save(ticket);
-            return ResponseEntity.ok("{\"message\": \"Ticket " + ticketId + " forced closed.\"}");
-        }).orElse(ResponseEntity.notFound().build());
-    }
-
-    @PatchMapping("/tickets/{ticketId}/waive")
-    public ResponseEntity<?> waiveTicketFee(@RequestHeader("Authorization") String token, 
-                                            @PathVariable int ticketId) {
-        return ticketDb.findById(ticketId).map(ticket -> {
-            ticket.setFee(0.0);
-            ticketDb.save(ticket);
-            return ResponseEntity.ok("{\"message\": \"Fee waived for ticket " + ticketId + ".\"}");
-        }).orElse(ResponseEntity.notFound().build());
-    }
-
-    @DeleteMapping("/tickets/{ticketId}")
-    public ResponseEntity<?> deleteTicket(@RequestHeader("Authorization") String token, 
-                                          @PathVariable int ticketId) {
-        if (!ticketDb.existsById(ticketId)) {
+        securityService.verifyRole(token, Role.ADMIN);
+        if (!slotDb.existsById(slotId)) {
             return ResponseEntity.notFound().build();
         }
-        ticketDb.deleteById(ticketId);
-        return ResponseEntity.ok("{\"message\": \"Ticket " + ticketId + " permanently deleted.\"}");
+        slotDb.deleteById(slotId);
+        return ResponseEntity.ok(new MessageResponse("Slot successfully removed"));
     }
-
     
     @PatchMapping("/slots/bulk")
-    public ResponseEntity<?> updateBulkSlots(@RequestHeader("Authorization") String token, 
+    public ResponseEntity<MessageResponse> updateBulkSlots(@RequestHeader("Authorization") String token, 
                                              @RequestBody BulkSlotRequest request) {
-        
+        securityService.verifyRole(token, Role.ADMIN);
         List<ParkingSlot> slots = slotDb.findAllById(request.getSlotIds());
         
         if (slots.isEmpty()) {
-            return ResponseEntity.badRequest().body("{\"message\": \"No valid slots found.\"}");
+            return ResponseEntity.badRequest().body(new MessageResponse("No valid slots found."));
         }
 
         slots.forEach(slot -> slot.setPriority(request.getPriority()));
         slotDb.saveAll(slots);
         
-        return ResponseEntity.ok("{\"message\": \"Successfully updated " + slots.size() + " slots.\"}");
+        return ResponseEntity.ok(new MessageResponse("Successfully updated " + slots.size() + " slots."));
     }
+
+    // --- PRICE MANAGEMENT ---
 
     @GetMapping("/price")
     public ResponseEntity<Double> getPrice(@RequestHeader("Authorization") String token) {
+        securityService.verifyRole(token, Role.ADMIN);
         Price price = priceDb.findById(1).orElse(null);
         return ResponseEntity.ok(price != null ? price.getPrice() : 5000.0); // Default price if not set
     }
 
     @PutMapping("/price")
-    public ResponseEntity<?> setPrice(@RequestHeader("Authorization") String token, 
+    public ResponseEntity<MessageResponse> setPrice(@RequestHeader("Authorization") String token, 
                                       @RequestParam double newPrice) {
+        securityService.verifyRole(token, Role.ADMIN);
         Price price = priceDb.findById(1).orElse(null);
         if (price != null) {
             price.setPrice(newPrice);
@@ -129,7 +148,7 @@ public class AdminController {
             newPriceEntry.setPrice(newPrice);
             priceDb.save(newPriceEntry);
         }
-        return ResponseEntity.ok("{\"message\": \"Global price updated to " + newPrice + "VND\"}");
+        return ResponseEntity.ok(new MessageResponse("Global price updated to " + newPrice + "VND"));
     }
 
     

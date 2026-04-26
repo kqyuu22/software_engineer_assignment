@@ -65,9 +65,8 @@
         // Bulletproof array fetcher
         async function safeFetchArray(url) {
             try {
-                console.log(`Fetching from ${url} with headers:`, authHeaders);
                 const response = await fetch(url, { headers: authHeaders });
-                
+                console.log(`API Response from ${url}:`, response);
                 await handleResponse(response)
 
                 const data = await response.json();
@@ -82,7 +81,8 @@
             const alerts = await safeFetchArray(`${API_BASE}/alerts/active`);
             const banner = document.getElementById("alert-banner");
             const list = document.getElementById("active-alerts-list");
-            console.log("Active alerts: ", alerts);
+
+            console.log("Active alerts response: ", alerts);
             
 
 
@@ -107,6 +107,7 @@
                     method: "PATCH", 
                     headers: authHeaders 
                 });
+                console.log(`Resolve Alert API Response for Alert ID ${alertId}:`, response);
                 if (response.ok) {
                     alert(await response.text());
                     loadActiveAlerts(); 
@@ -117,6 +118,8 @@
 
         async function loadAlertHistory() {
             const alerts = await safeFetchArray(`${API_BASE}/alerts/history`);
+            console.log("Alert history response: ", alerts);
+
             let html = "";
             alerts.forEach(a => {
                 html += `<tr><td>${a.alertId}</td><td>${a.type}</td><td>${a.message}</td><td>${new Date(a.timestamp).toLocaleString()}</td></tr>`;
@@ -126,6 +129,8 @@
 
         async function loadSlots() {
             const slots = await safeFetchArray(`${API_BASE}/slots`);
+            console.log("Slots API Response: ", slots);
+
             let html = "";
             slots.forEach(s => {
                 html += `<tr><td>${s.slotId}</td><td><strong>${s.status}</strong></td><td>${s.priority}</td></tr>`;
@@ -159,7 +164,7 @@
             loadSlots();
             loadTickets();
             loadAlertHistory();
-            setInterval(() => { loadActiveAlerts(); loadSlots(); }, 10000);
+            setInterval(() => { loadActiveAlerts(); loadSlots(); }, 10000); // Auto-refresh every 10 seconds
         };
     </script>
 </body>

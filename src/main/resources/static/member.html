@@ -25,18 +25,10 @@
         requireAuth("MEMBER");
         const API_BASE = "http://localhost:8080/member";
 
-        // Global response handler to catch 401 timeouts
-        async function handleResponse(response) {
-            if (!response.ok) {
-                if (response.status === 401) logout();
-                throw new Error("HTTP " + response.status);
-            }
-            return response;
-        }
-
         async function loadHistory() {
             
             const res = await fetch(`${API_BASE}/history`, { headers: authHeaders });
+            console.log("History API Response:", res);
             await handleResponse(res);
             const tickets = await res.json();
 
@@ -64,6 +56,7 @@
         async function loadPayments() {
             try {
                 const res = await fetch(`${API_BASE}/payment`, { headers: authHeaders });
+                console.log("Payments API Response:", res);
                 await handleResponse(res);
                 const payments = await res.json();
 
@@ -91,7 +84,7 @@
                     headers: authHeaders 
                 });
                 await handleResponse(res);
-                
+                console.log("Execute Payment API Response:", res);
                 const data = await res.json();
                 alert(data.message);
                 loadPayments(); // Reload table to show PAID status

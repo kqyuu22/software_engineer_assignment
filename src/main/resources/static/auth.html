@@ -31,7 +31,7 @@
                 body: JSON.stringify({ username: u, password: p })
             });
 
-            console.log("Received response: ", response);
+            console.log("Login API response: ", response);
 
             if (response.ok) {
                 const data = await response.json();
