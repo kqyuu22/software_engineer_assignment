@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Parking - Simulation Panel</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f9; color: #333; }
+        h1 { color: #2c3e50; }
+        .container { display: flex; flex-wrap: wrap; gap: 20px; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); flex: 1 1 300px; }
+        .card h3 { margin-top: 0; color: #2980b9; }
+        input, select, button { padding: 10px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+        button { background: #3498db; color: white; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        button:hover { background: #2980b9; }
+        #log { margin-top: 20px; background: #222; color: #0f0; padding: 10px; height: 200px; overflow-y: auto; font-family: monospace; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+    <h1>Simulation Panel</h1>
+    <p>Interact with the system's entry kiosk and hardware sensors.</p>
+    
+    <div class="container">
+        <!-- Entry Kiosk Simulation -->
+        <div class="card">
+            <h3>1. Entry Kiosk (Assign Spot)</h3>
+            <label for="roleSelect">Select Role:</label>
+            <select id="roleSelect">
+                <option value="STAFF">STAFF</option>
+                <option value="LECTURER">LECTURER</option>
+                <option value="STUDENT">STUDENT</option>
+                <option value="OTHER">OTHER</option>
+            </select>
+            <button onclick="assignSpot()">Assign Spot</button>
+        </div>
+
+        <!-- Hardware Sensor Simulation -->
+        <div class="card">
+            <h3>2. Hardware Sensors</h3>
+            <label for="slotId">Slot ID (1-300):</label>
+            <input type="number" id="slotId" min="1" max="300" placeholder="e.g. 15" />
+            
+            <button onclick="simulateAction('car-arrival')" style="background-color: #27ae60;">Car Arrives (Occupied)</button>
+            <button onclick="simulateAction('car-departure')" style="background-color: #f39c12;">Car Leaves (Available)</button>
+            <button onclick="simulateAction('sensor-failure')" style="background-color: #c0392b;">Trigger Sensor Failure</button>
+            <button onclick="simulateAction('sensor-fix')" style="background-color: #8e44ad;">Fix Sensor (Reboot)</button>
+        </div>
+        <!-- Entrance Gate Simulation -->
+        <div class="card">
+            <h3>3. Entrance Gate</h3>
+            <label for="entranceUserId">Scan Card (User ID):</label>
+            <input type="number" id="entranceUserId" placeholder="e.g. 1" />
+            <label for="entranceExistingPlate">Existing Plate (Simulate Error):</label>
+            <input type="text" id="entranceExistingPlate" placeholder="e.g. 29A-12345 (Leave blank for new plate)" />
+            <p style="font-size: 0.9em; color: #7f8c8d;"><i>IoT Camera will automatically scan license plate on entry unless you override it to simulate an error.</i></p>
+            <button onclick="simulateEntrance()" style="background-color: #2c3e50;">Vehicle Enters</button>
+        </div>
+
+        <!-- Exit Gate Simulation -->
+        <div class="card">
+            <h3>4. Exit Gate</h3>
+            <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 5px;">
+                <label for="activeTickets" style="margin: 0;">Select Active Vehicle:</label>
+                <button onclick="fetchActiveTickets()" style="padding: 5px; background: #6c757d; font-size: 0.8em; margin: 0; width: auto;">Refresh</button>
+            </div>
+            <select id="activeTickets" onchange="autoFillExit()">
+                <option value="">-- Choose a parked vehicle --</option>
+            </select>
+            
+            <label for="exitUserId">Scan Card (User ID):</label>
+            <input type="number" id="exitUserId" placeholder="e.g. 1" />
+            <label for="exitPlate">Camera Scans License Plate:</label>
+            <input type="text" id="exitPlate" placeholder="e.g. 29A-12345" />
+            <button onclick="simulateExit()" style="background-color: #e74c3c;">Vehicle Exits</button>
+        </div>
+    </div>
+
+    <h3>Action Logs</h3>
+    <div id="log"></div>
+
+    <script>
+        function logMessage(msg) {
+            const logDiv = document.getElementById('log');
+            const p = document.createElement('p');
+            p.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            logDiv.appendChild(p);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        async function assignSpot() {
+            const role = document.getElementById('roleSelect').value;
+            try {
+                const response = await fetch(`/api/simulation/assign-spot?role=${role}`, { method: 'POST' });
+                const data = await response.json();
+                if (response.ok && data.success) {
+                    logMessage(`✅ ${data.message}`);
+                } else {
+                    logMessage(`❌ Failed: ${data.message || data.error}`);
+                }
+            } catch (err) {
+                logMessage(`❌ Error connecting to server: ${err.message}`);
+            }
+        }
+
+        async function simulateAction(action) {
+            const slotId = document.getElementById('slotId').value;
+            if (!slotId) {
+                logMessage(`⚠️ Please enter a Slot ID.`);
+                return;
+            }
+            try {
+                const response = await fetch(`/api/simulation/${action}?slotId=${slotId}`, { method: 'POST' });
+                const data = await response.json();
+                if (response.ok) {
+                    logMessage(`✅ ${data.message}`);
+                } else {
+                    logMessage(`❌ Failed action: ${data.error || 'Unknown error'}`);
+                }
+            } catch (err) {
+                logMessage(`❌ Error connecting to server: ${err.message}`);
+            }
+        }
+
+        async function fetchActiveTickets() {
+            try {
+                const response = await fetch('/api/simulation/active-tickets');
+                const data = await response.json();
+                const select = document.getElementById('activeTickets');
+                select.innerHTML = '<option value="">-- Choose a parked vehicle --</option>';
+                data.forEach(ticket => {
+                    const opt = document.createElement('option');
+                    opt.value = JSON.stringify(ticket);
+                    opt.textContent = `User: ${ticket.userId} | Plate: ${ticket.licensePlate}`;
+                    select.appendChild(opt);
+                });
+                logMessage(`✅ Refreshed active tickets list.`);
+            } catch (err) {
+                logMessage(`❌ Error fetching tickets: ${err.message}`);
+            }
+        }
+
+        function autoFillExit() {
+            const select = document.getElementById('activeTickets');
+            if (!select.value) return;
+            const ticket = JSON.parse(select.value);
+            document.getElementById('exitUserId').value = ticket.userId;
+            document.getElementById('exitPlate').value = ticket.licensePlate;
+        }
+
+        async function simulateEntrance() {
+            const userId = document.getElementById('entranceUserId').value;
+            const existingPlate = document.getElementById('entranceExistingPlate').value;
+            if (!userId) {
+                logMessage(`⚠️ Please enter User ID for Entrance.`);
+                return;
+            }
+            try {
+                const response = await fetch(`/api/simulation/entrance?userId=${userId}&existingPlate=${encodeURIComponent(existingPlate)}`, { method: 'POST' });
+                const data = await response.json();
+                if (response.ok) {
+                    logMessage(`🚗✅ ENTRANCE SUCCESS: ${data.message} (Ticket #${data.ticketId})`);
+                    fetchActiveTickets(); // auto refresh
+                } else {
+                    logMessage(`⛔ ENTRANCE FAILED: ${data.error || 'Unknown error'}`);
+                }
+            } catch (err) {
+                logMessage(`❌ Error connecting to server: ${err.message}`);
+            }
+        }
+
+        async function simulateExit() {
+            const userId = document.getElementById('exitUserId').value;
+            const plate = document.getElementById('exitPlate').value;
+            if (!userId || !plate) {
+                logMessage(`⚠️ Please enter both User ID and License Plate for Exit.`);
+                return;
+            }
+            try {
+                const response = await fetch(`/api/simulation/exit?userId=${userId}&licensePlate=${encodeURIComponent(plate)}`, { method: 'POST' });
+                const data = await response.json();
+                if (response.ok) {
+                    logMessage(`🚙✅ EXIT SUCCESS: ${data.message} (Ticket #${data.ticketId})`);
+                    fetchActiveTickets(); // auto refresh
+                } else {
+                    logMessage(`⛔ EXIT FAILED: ${data.error || 'Unknown error'}`);
+                }
+            } catch (err) {
+                logMessage(`❌ Error connecting to server: ${err.message}`);
+            }
+        }
+        
+        // Fetch tickets on load
+        window.onload = fetchActiveTickets;
+    </script>
+</body>
+</html>

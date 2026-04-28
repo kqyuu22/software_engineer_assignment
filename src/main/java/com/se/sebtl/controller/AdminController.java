@@ -32,13 +32,13 @@ public class AdminController {
     // --- TICKET MANAGEMENT ---
 
     @GetMapping("/history")
-    public ResponseEntity<List<Ticket>> getHistory(@RequestHeader("Authorization") String token) {
+    public ResponseEntity<List<TicketView>> getHistory(@RequestHeader("Authorization") String token) {
         securityService.verifyRole(token, AppRole.ADMIN);
         return ResponseEntity.ok(parkingService.getAllTickets());
     }
 
     @GetMapping("/history/search")
-    public ResponseEntity<List<Ticket>> searchHistory(@RequestHeader("Authorization") String token, 
+    public ResponseEntity<List<TicketView>> searchHistory(@RequestHeader("Authorization") String token, 
                                                       @RequestParam String query) {
         securityService.verifyRole(token, AppRole.ADMIN);
         return ResponseEntity.ok(parkingService.searchTickets(query));
@@ -93,18 +93,18 @@ public class AdminController {
     // --- PRICE MANAGEMENT ---
 
     @GetMapping("/price")
-    public ResponseEntity<Map<String, Double>> getPrice(@RequestHeader("Authorization") String token) {
+    public ResponseEntity<Map<String, java.math.BigDecimal>> getPrice(@RequestHeader("Authorization") String token) {
         securityService.verifyRole(token, AppRole.ADMIN);
         
         Price price = priceDb.findById(1).orElse(null);
-        Double value = (price != null) ? price.getPrice() : 5000.0;
+        java.math.BigDecimal value = (price != null) ? price.getPrice() : java.math.BigDecimal.valueOf(5000.0);
 
         return ResponseEntity.ok(Collections.singletonMap("price", value));
     }
 
     @PutMapping("/price")
     public ResponseEntity<MessageResponse> setPrice(@RequestHeader("Authorization") String token, 
-                                      @RequestParam double newPrice) {
+                                      @RequestParam java.math.BigDecimal newPrice) {
         securityService.verifyRole(token, AppRole.ADMIN);
         Price price = priceDb.findById(1).orElse(null);
         if (price != null) {

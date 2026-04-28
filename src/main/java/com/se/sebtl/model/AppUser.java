@@ -21,6 +21,7 @@ public class AppUser {
     private String password;
 
     @Enumerated(EnumType.STRING)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.NAMED_ENUM)
     @Column(name = "role", nullable = false)
     private AppRole role;
 
