@@ -80,9 +80,8 @@ Every failed request (4xx or 5xx) will return a JSON object with a single key: `
 - Features:
     - Price Management
         - See current price `GET /admin/price` 
-        - Update prrice `PUT /admin/price?newPrice={p}`
+        - Update price `PUT /admin/price?newPrice={p}`
     - Slot Management
-        - Slot bulk update `PATCH /admin /slots/bulk`. User input e.g. “1-10”, “1, 4, 7”, “15” and update the role (priority) of the corresponding slots. Load the slots again to see the new updated info
         - Slot View `GET /admin/slots`
 
 ## Backend Implementation Status

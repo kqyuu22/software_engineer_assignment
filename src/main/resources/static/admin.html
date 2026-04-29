@@ -1,22 +1,79 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <title>Admin Dashboard</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; background-color: #f8f9fa; } 
-        .card { background: white; border: 1px solid #ccc; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);} 
-        input, select { padding: 8px; margin-right: 10px; border: 1px solid #ccc; border-radius: 4px; } 
-        button { padding: 8px 15px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; } 
-        button:hover { background: #0056b3; }
-        .btn-danger { background: #dc3545; }
-        .btn-warning { background: #ffc107; color: black; }
-        .btn-success { background: #28a745; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { padding: 10px; border: 1px solid #ccc; text-align: left; }
-        th { background-color: #f2f2f2; }
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+
+        .card {
+            background: white;
+            border: 1px solid #ccc;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        input,
+        select {
+            padding: 8px;
+            margin-right: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button {
+            padding: 8px 15px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: black;
+        }
+
+        .btn-success {
+            background: #28a745;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th,
+        td {
+            padding: 10px;
+            border: 1px solid #ccc;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
     </style>
     <script src="auth.js"></script>
+    <script src="shared.js"></script>
 </head>
+
 <body>
     <h1>Admin Control Panel</h1>
 
@@ -29,18 +86,27 @@
 
     <div class="card">
         <h3>Ticket History</h3>
-        <input type="text" id="searchPlate" placeholder="Search Plate, Ticket ID, or User ID..." style="width: 300px;">
+        <input type="text" id="searchPlate" placeholder="Search Plate, Ticket ID, or User ID" style="width: 300px;">
         <button onclick="searchTickets()">Search</button>
         <button onclick="loadTickets()" style="background: #6c757d;">Clear Search</button>
         <table>
-            <thead><tr><th>Ticket ID</th><th>User ID</th><th>Plate</th><th>Entry Time</th><th>Exit Time</th><th>Status</th></tr></thead>
+            <thead>
+                <tr>
+                    <th>Ticket ID</th>
+                    <th>User ID</th>
+                    <th>Plate</th>
+                    <th>Entry Time</th>
+                    <th>Exit Time</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
             <tbody id="tickets-body"></tbody>
         </table>
     </div>
 
     <div class="card">
         <h3>Slot Management & Bulk Assignment</h3>
-        
+
         <div style="margin-bottom: 15px;">
             <strong>Add Single Slot:</strong>
             <select id="prioritySelect">
@@ -70,34 +136,23 @@
         <table>
             <thead>
                 <tr>
-                    <th>Slot ID</th><th>Status</th><th>Priority</th><th>Admin Actions</th>
+                    <th>Slot ID</th>
+                    <th>Status</th>
+                    <th>Priority</th>
+                    <th>Admin Actions</th>
                 </tr>
             </thead>
             <tbody id="slots-body"></tbody>
         </table>
     </div>
 
-    
+
 
     <script>
         requireAuth("ADMIN");
         const API_BASE = "/admin";
 
-        // Bulletproof array fetcher
-        async function safeFetchArray(url) {
-            try {
-                const response = await fetch(url, { headers: authHeaders });
-                console.log(`API Response from ${url}:`, response);
-                
-                await handleResponse(response)
 
-                const data = await response.json();
-                return Array.isArray(data) ? data : [];
-            } catch (error) {
-                console.error(`Fetch error at ${url}:`, error);
-                return [];
-            }
-        }
 
         // --- PRICING ---
         async function loadPrice() {
@@ -105,7 +160,8 @@
                 const res = await fetch(`${API_BASE}/price`, { headers: authHeaders });
                 console.log("Price API Response:", res);
                 await handleResponse(res);
-                document.getElementById("current-price").innerText = await res.text();
+                const data = await res.json();
+                document.getElementById("current-price").innerText = data.price;
             } catch (e) { }
         }
 
@@ -130,7 +186,7 @@
                 console.log("Slots API Response:", res);
                 await handleResponse(res);
                 const slots = await res.json();
-                
+
                 let html = "";
                 slots.forEach(s => {
                     html += `<tr>
@@ -162,7 +218,7 @@
         // 3. Delete a slot and refresh
         async function removeSlot(id) {
             if (!confirm(`Are you sure you want to permanently delete Slot ${id}?`)) return;
-            
+
             try {
                 const res = await fetch(`${API_BASE}/slots/${id}`, {
                     method: "DELETE",
@@ -197,7 +253,7 @@
                 console.log("Bulk Update Slots API Response:", res);
                 await handleResponse(res);
                 showErrorToast((await res.json()).message);
-                
+
                 document.getElementById('bulkSlotInput').value = ""; // Clear the input box
                 loadSlots(); // <--- REFRESH THE TABLE AUTOMATICALLY
             } catch (e) { }
@@ -210,7 +266,7 @@
                 await loadPrice();
                 await loadTickets();
                 await loadSlots();
-                
+
                 console.log("All data loaded successfully");
             } catch (error) {
                 console.error("One of the fetches failed:", error);
@@ -238,27 +294,8 @@
 
 
         // --- TICKETS ---
-        
-        async function loadTickets() {
-            document.getElementById("searchPlate").value = ""; 
-            renderTickets(await safeFetchArray(`${API_BASE}/history`));
-        }
 
-        async function searchTickets() {
-            const query = document.getElementById("searchPlate").value.trim();
-            if (!query) return loadTickets();
-            console.log(`Searching tickets for: ${query}`);
-            renderTickets(await safeFetchArray(`${API_BASE}/history/search?query=${query}`));
-        }
 
-        function renderTickets(tickets) {
-            let html = "";
-            tickets.forEach(t => {
-                const status = t.finished ? "Finished" : "Active";
-                html += `<tr><td>${t.ticketId}</td><td>${t.userId}</td><td>${t.licensePlate}</td><td>${new Date(t.entryTime).toLocaleString()}</td><td>${t.exitTime ? new Date(t.exitTime).toLocaleString() : '-'}</td><td>${status}</td></tr>`;
-            });
-            document.getElementById("tickets-body").innerHTML = html;
-        }
 
         async function adminAction(actionType, ticketId) {
             if (!confirm(`Are you sure you want to ${actionType.replace('-', ' ')} Ticket ${ticketId}?`)) return;
@@ -283,4 +320,5 @@
         }
     </script>
 </body>
+
 </html>

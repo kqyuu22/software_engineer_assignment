@@ -36,12 +36,11 @@ public class ParkingService {
         
         // If the search term contains ONLY numbers, it could be an ID or a numeric license plate
         if (term.matches("\\d+")) {
-            return ticketViewDb.findByLicensePlateContainingIgnoreCaseOrHolderIdentifierContainingIgnoreCaseOrderByEntryTimeDesc(
-                    term, term);
+            return ticketViewDb.findByTicketIdOrLicensePlateContainingIgnoreCaseOrHolderIdentifierContainingIgnoreCaseOrderByEntryTimeDesc(
+                    Integer.parseInt(term), term, term);
         } else {
-            // If it contains letters, it can only be a license plate. 
-            // (Passing text into an Integer ID query would crash the database)
-            return ticketViewDb.findByLicensePlateContainingIgnoreCaseOrderByEntryTimeDesc(term);
+            // If it contains letters, it can be a license plate or a User ID (like "GUEST-02").
+            return ticketViewDb.findByLicensePlateContainingIgnoreCaseOrHolderIdentifierContainingIgnoreCaseOrderByEntryTimeDesc(term, term);
         }
     }
 }
