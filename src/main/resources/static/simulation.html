@@ -74,12 +74,24 @@
             <input type="text" id="exitPlate" placeholder="e.g. 29A-12345" />
             <button onclick="simulateExit()" style="background-color: #e74c3c;">Vehicle Exits</button>
         </div>
+
+        <!-- Offline Edge Node Simulation -->
+        <div class="card">
+            <h3>5. Edge Node Control (Offline Mode)</h3>
+            <label style="display: flex; align-items: center; gap: 10px; font-weight: bold;">
+                <input type="checkbox" id="offlineToggle" onchange="toggleOfflineMode()" style="width: auto; transform: scale(1.5);">
+                Simulate Network Disconnect
+            </label>
+            <p style="font-size: 0.9em; color: #7f8c8d;"><i>When Offline Mode is checked, the Edge server blocks connections to the main Spring Boot server. It drops back to its local SQLite cache for verification, and locally queues all new entries. Unchecking restores the connection and syncs automatically!</i></p>
+        </div>
     </div>
 
     <h3>Action Logs</h3>
     <div id="log"></div>
 
     <script>
+        const API_BASE = "http://localhost:3000"; // Pointed to the Local Storage Edge DB Proxy Server
+
         function logMessage(msg) {
             const logDiv = document.getElementById('log');
             const p = document.createElement('p');
@@ -88,10 +100,30 @@
             logDiv.scrollTop = logDiv.scrollHeight;
         }
 
+        async function toggleOfflineMode() {
+            const isOffline = document.getElementById('offlineToggle').checked;
+            try {
+                const response = await fetch(API_BASE + '/api/edge-config/offline', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ offline: isOffline })
+                });
+                const data = await response.json();
+                
+                if (data.offline) {
+                    logMessage(`🔴 [EDGE CONFIG] Database connection explicitly CUT. Simulation running offline.`);
+                } else {
+                    logMessage(`🟢 [EDGE CONFIG] Database connection RESTORED. Awaiting automatic background sync!`);
+                }
+            } catch (err) {
+                logMessage(`❌ Error toggling offline status: Make sure Edge Server (port 3000) is running!`);
+            }
+        }
+
         async function assignSpot() {
             const role = document.getElementById('roleSelect').value;
             try {
-                const response = await fetch(`/api/simulation/assign-spot?role=${role}`, { method: 'POST' });
+                const response = await fetch(API_BASE + `/api/simulation/assign-spot?role=${role}`, { method: 'POST' });
                 const data = await response.json();
                 if (response.ok && data.success) {
                     logMessage(`✅ ${data.message}`);
@@ -110,7 +142,7 @@
                 return;
             }
             try {
-                const response = await fetch(`/api/simulation/${action}?slotId=${slotId}`, { method: 'POST' });
+                const response = await fetch(API_BASE + `/api/simulation/${action}?slotId=${slotId}`, { method: 'POST' });
                 const data = await response.json();
                 if (response.ok) {
                     logMessage(`✅ ${data.message}`);
@@ -124,7 +156,7 @@
 
         async function fetchActiveTickets() {
             try {
-                const response = await fetch('/api/simulation/active-tickets');
+                const response = await fetch(API_BASE + '/api/simulation/active-tickets');
                 const data = await response.json();
                 const select = document.getElementById('activeTickets');
                 select.innerHTML = '<option value="">-- Choose a parked vehicle --</option>';
@@ -156,7 +188,7 @@
                 return;
             }
             try {
-                const response = await fetch(`/api/simulation/entrance?userId=${userId}&existingPlate=${encodeURIComponent(existingPlate)}`, { method: 'POST' });
+                const response = await fetch(API_BASE + `/api/simulation/entrance?userId=${userId}&existingPlate=${encodeURIComponent(existingPlate)}`, { method: 'POST' });
                 const data = await response.json();
                 if (response.ok) {
                     logMessage(`🚗✅ ENTRANCE SUCCESS: ${data.message} (Ticket #${data.ticketId})`);
@@ -177,7 +209,7 @@
                 return;
             }
             try {
-                const response = await fetch(`/api/simulation/exit?userId=${userId}&licensePlate=${encodeURIComponent(plate)}`, { method: 'POST' });
+                const response = await fetch(API_BASE + `/api/simulation/exit?userId=${userId}&licensePlate=${encodeURIComponent(plate)}`, { method: 'POST' });
                 const data = await response.json();
                 if (response.ok) {
                     logMessage(`🚙✅ EXIT SUCCESS: ${data.message} (Ticket #${data.ticketId})`);

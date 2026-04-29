@@ -67,3 +67,9 @@ npm test
 ```
 
 Playwright will automatically start your Spring Boot API in the background, run all three test specs concurrently in headless Chrome browsers, and tell you if any features break!
+
+For chaos simulation, run this instead:
+```bash
+npx playwright test tests/chaos-simulation.spec.js
+```
+(Note: chaos simulation is partial, still need to be improved.) 
