@@ -1,24 +1,94 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <title>Operator Dashboard</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; background-color: #f8f9fa; }
-        .card { background: white; border: 1px solid #ddd; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        h1, h3 { margin-top: 0; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { padding: 10px; border: 1px solid #ccc; text-align: left; }
-        th { background-color: #f2f2f2; }
-        button { padding: 8px 15px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
-        button:hover { background: #0056b3; }
-        .btn-success { background: #28a745; }
-        input { padding: 8px; margin-right: 10px; border: 1px solid #ccc; border-radius: 4px;}
-        #alert-banner { display: none; background-color: #ffdddd; color: #d8000c; border: 1px solid #d8000c; padding: 15px; margin-bottom: 20px; border-radius: 8px; }
-        .alert-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #f5c6c6; }
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+
+        .card {
+            background: white;
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        h1,
+        h3 {
+            margin-top: 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th,
+        td {
+            padding: 10px;
+            border: 1px solid #ccc;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        button {
+            padding: 8px 15px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        .btn-success {
+            background: #28a745;
+        }
+
+        input {
+            padding: 8px;
+            margin-right: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        #alert-banner {
+            display: none;
+            background-color: #ffdddd;
+            color: #d8000c;
+            border: 1px solid #d8000c;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+        }
+
+        .alert-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #f5c6c6;
+        }
     </style>
     <script src="auth.js"></script>
+    <script src="shared.js"></script>
 </head>
+
 <body>
 
     <h1>Operator Dashboard</h1>
@@ -30,11 +100,20 @@
 
     <div class="card">
         <h3>Ticket History</h3>
-        <input type="text" id="searchPlate" placeholder="Search Plate, Ticket ID, or User ID..." style="width: 300px;">
+        <input type="text" id="searchPlate" placeholder="Search Plate, Ticket ID, or User ID" style="width: 300px;">
         <button onclick="searchTickets()">Search</button>
         <button onclick="loadTickets()" style="background: #6c757d;">Clear Search</button>
         <table>
-            <thead><tr><th>Ticket ID</th><th>User ID</th><th>Plate</th><th>Entry Time</th><th>Exit Time</th><th>Status</th></tr></thead>
+            <thead>
+                <tr>
+                    <th>Ticket ID</th>
+                    <th>User ID</th>
+                    <th>Plate</th>
+                    <th>Entry Time</th>
+                    <th>Exit Time</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
             <tbody id="tickets-body"></tbody>
         </table>
     </div>
@@ -43,7 +122,14 @@
         <h3>Resolved Alert History</h3>
         <button onclick="loadAlertHistory()">Refresh History</button>
         <table>
-            <thead><tr><th>Alert ID</th><th>Type</th><th>Message</th><th>Timestamp</th></tr></thead>
+            <thead>
+                <tr>
+                    <th>Alert ID</th>
+                    <th>Type</th>
+                    <th>Message</th>
+                    <th>Timestamp</th>
+                </tr>
+            </thead>
             <tbody id="alert-history-body"></tbody>
         </table>
     </div>
@@ -52,33 +138,25 @@
         <h3>Real-Time Parking Slots</h3>
         <button onclick="loadSlots()">Refresh Slots</button>
         <table>
-            <thead><tr><th>Slot ID</th><th>Status</th><th>Priority</th></tr></thead>
+            <thead>
+                <tr>
+                    <th>Slot ID</th>
+                    <th>Status</th>
+                    <th>Priority</th>
+                </tr>
+            </thead>
             <tbody id="slots-body"></tbody>
         </table>
     </div>
 
-    
+
 
     <script>
         // Centralized auth check
         requireAuth("OPERATOR");
-        const API_BASE = "http://localhost:8080/operator";
+        const API_BASE = "/operator";
 
-        // Bulletproof array fetcher
-        async function safeFetchArray(url) {
-            try {
-                const response = await fetch(url, { headers: authHeaders });
-                console.log(`API Response from ${url}:`, response);
-                
-                await handleResponse(response)
-
-                const data = await response.json();
-                return Array.isArray(data) ? data : [];
-            } catch (error) {
-                console.error(`Fetch error at ${url}:`, error);
-                return [];
-            }
-        }
+        // Functions moved to shared.js
 
         async function loadActiveAlerts() {
             const alerts = await safeFetchArray(`${API_BASE}/alerts/active`);
@@ -86,7 +164,7 @@
             const list = document.getElementById("active-alerts-list");
 
             console.log("Active alerts response: ", alerts);
-            
+
 
 
             if (alerts.length > 0) {
@@ -106,15 +184,15 @@
 
         async function resolveAlert(alertId) {
             try {
-                const response = await fetch(`${API_BASE}/alerts/${alertId}/resolve`, { 
-                    method: "PATCH", 
-                    headers: authHeaders 
+                const response = await fetch(`${API_BASE}/alerts/${alertId}/resolve`, {
+                    method: "PATCH",
+                    headers: authHeaders
                 });
                 console.log(`Resolve Alert API Response for Alert ID ${alertId}:`, response);
                 if (response.ok) {
                     alert(await response.text());
-                    loadActiveAlerts(); 
-                    loadAlertHistory(); 
+                    loadActiveAlerts();
+                    loadAlertHistory();
                 } else alert("Failed to resolve alert.");
             } catch (e) { console.error("Resolve error", e); }
         }
@@ -141,26 +219,7 @@
             document.getElementById("slots-body").innerHTML = html;
         }
 
-        async function loadTickets() {
-            document.getElementById("searchPlate").value = ""; 
-            renderTickets(await safeFetchArray(`${API_BASE}/history`));
-        }
 
-        async function searchTickets() {
-            const query = document.getElementById("searchPlate").value.trim();
-            if (!query) return loadTickets();
-            console.log(`Searching tickets for: ${query}`);
-            renderTickets(await safeFetchArray(`${API_BASE}/history/search?query=${query}`));
-        }
-
-        function renderTickets(tickets) {
-            let html = "";
-            tickets.forEach(t => {
-                const status = t.finished ? "Finished" : "Active";
-                html += `<tr><td>${t.ticketId}</td><td>${t.userId}</td><td>${t.licensePlate}</td><td>${new Date(t.entryTime).toLocaleString()}</td><td>${t.exitTime ? new Date(t.exitTime).toLocaleString() : '-'}</td><td>${status}</td></tr>`;
-            });
-            document.getElementById("tickets-body").innerHTML = html;
-        }
 
         window.onload = async () => {
             try {
@@ -176,4 +235,5 @@
         };
     </script>
 </body>
+
 </html>

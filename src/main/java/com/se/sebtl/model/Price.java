@@ -9,13 +9,13 @@ public class Price {
     @Column(name = "id")
     private Integer id;
 
-    @Column(name = "price")
-    private Double price;
+    @Column(name = "price", nullable = false)
+    private java.math.BigDecimal price = java.math.BigDecimal.ZERO;
 
-    public Double getPrice() {
+    public java.math.BigDecimal getPrice() {
         return price;
     }
-    public void setPrice(Double price) {
+    public void setPrice(java.math.BigDecimal price) {
         this.price = price;
     }
 }
