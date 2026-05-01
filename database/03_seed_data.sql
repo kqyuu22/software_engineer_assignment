@@ -8,6 +8,7 @@ TRUNCATE TABLE
     public.parking_slots, 
     public.sso_users, 
     public.billing, 
+    public.tickets,
     public.sso_tickets, 
     public.guest_tickets, 
     public.alerts 
@@ -16,7 +17,11 @@ RESTART IDENTITY CASCADE;
 -- ==============================================================================
 -- 1. INITIALIZE CONFIGURATIONS
 -- ==============================================================================
-INSERT INTO public.price (id, price) VALUES (1, 5000.00);
+INSERT INTO public.price (slot_priority, price) VALUES 
+('STUDENT', 2000.0),
+('LECTURER', 3000.0),
+('STAFF', 4000.0),
+('OTHER', 5000.0);
 
 -- ==============================================================================
 -- 2. SEED PARKING SLOTS
@@ -72,23 +77,63 @@ INSERT INTO public.billing (user_id, billing_month, amount, status) VALUES
 -- ==============================================================================
 -- 5. SEED SSO TICKETS
 -- ==============================================================================
-INSERT INTO public.sso_tickets (user_id, entry_time, exit_time, license_plate, parking_spot, finished) VALUES
-    -- Active Tickets (Null exit_time)
-    (1001, '2026-04-25 22:15:40', NULL, '55BB34567', 10, false),
-    (1006, '2026-04-22 01:35:46.799', NULL, '59L-13431', 1, false),
-    (2001, now() - interval '3 hours', NULL, '29C-12345', 101, false),
-    -- Finished Ticket
-    (1001, '2026-04-25 22:19:09', '2026-04-26 02:30:26.1262', '55BB12345', NULL, true);
+-- Insert Active SSO Ticket 1
+WITH t AS (
+  INSERT INTO public.tickets (entry_time, exit_time, license_plate, parking_spot, finished)
+  VALUES ('2026-04-25 22:15:40', NULL, '55BB34567', 10, false)
+  RETURNING ticket_id
+)
+INSERT INTO public.sso_tickets (ticket_id, user_id) 
+SELECT ticket_id, 1001 FROM t;
+
+-- Insert Active SSO Ticket 2
+WITH t AS (
+  INSERT INTO public.tickets (entry_time, exit_time, license_plate, parking_spot, finished)
+  VALUES ('2026-04-22 01:35:46.799', NULL, '59L-13431', 1, false)
+  RETURNING ticket_id
+)
+INSERT INTO public.sso_tickets (ticket_id, user_id) 
+SELECT ticket_id, 1006 FROM t;
+
+-- Insert Active SSO Ticket 3 (Dynamic Time)
+WITH t AS (
+  INSERT INTO public.tickets (entry_time, exit_time, license_plate, parking_spot, finished)
+  VALUES (now() - interval '3 hours', NULL, '29C-12345', 101, false)
+  RETURNING ticket_id
+)
+INSERT INTO public.sso_tickets (ticket_id, user_id) 
+SELECT ticket_id, 2001 FROM t;
+
+-- Insert Finished SSO Ticket
+WITH t AS (
+  INSERT INTO public.tickets (entry_time, exit_time, license_plate, parking_spot, finished)
+  VALUES ('2026-04-25 22:19:09', '2026-04-26 02:30:26.1262', '55BB12345', NULL, true)
+  RETURNING ticket_id
+)
+INSERT INTO public.sso_tickets (ticket_id, user_id) 
+SELECT ticket_id, 1001 FROM t;
 
 -- ==============================================================================
 -- 6. SEED GUEST TICKETS
 -- Assigned to slots in the 201-250 "OTHER" range.
 -- ==============================================================================
-INSERT INTO public.guest_tickets (entry_time, exit_time, license_plate, parking_spot, finished, final_calculated_fee, paid_directly) VALUES
-    -- Active Guest
-    (now() - interval '2 hours', NULL, '30A-99999', 201, false, NULL, false),
-    -- Finished & Paid Guest (Parked for 4 hours)
-    (now() - interval '6 hours', now() - interval '2 hours', '29B-88888', NULL, true, 20000.00, true);
+-- Active Guest Ticket
+WITH t AS (
+  INSERT INTO public.tickets (entry_time, exit_time, license_plate, parking_spot, finished)
+  VALUES (now() - interval '2 hours', NULL, '30A-99999', 201, false)
+  RETURNING ticket_id
+)
+INSERT INTO public.guest_tickets (ticket_id, final_calculated_fee, paid_directly)
+SELECT ticket_id, NULL, false FROM t;
+
+-- Finished & Paid Guest Ticket
+WITH t AS (
+  INSERT INTO public.tickets (entry_time, exit_time, license_plate, parking_spot, finished)
+  VALUES (now() - interval '6 hours', now() - interval '2 hours', '29B-88888', NULL, true)
+  RETURNING ticket_id
+)
+INSERT INTO public.guest_tickets (ticket_id, final_calculated_fee, paid_directly)
+SELECT ticket_id, 20000.00, true FROM t;
 
 -- ==============================================================================
 -- 7. SEED ALERTS

@@ -1,10 +1,16 @@
 package com.se.sebtl.model;
 
-import jakarta.persistence.*;
-import java.time.OffsetDateTime;
-import java.math.BigDecimal;
-
-import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 
 @Entity
 @Table(name = "sso_tickets")
@@ -12,75 +18,57 @@ public class SsoTicket {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "ticket_id")
-    private Integer ticketId;
+    @Column(name = "sso_ticket_id")
+    private Integer ssoTicketId;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ticket_id", nullable = false)
+    @JsonIgnore
+    private Ticket ticket;
 
     @Column(name = "user_id", nullable = false)
     private Integer userId;
 
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ssXXX")
-    @Column(name = "entry_time", nullable = false, columnDefinition = "TIMESTAMPTZ")
-    private OffsetDateTime entryTime;
-
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ssXXX")
-    @Column(name = "exit_time", columnDefinition = "TIMESTAMPTZ")
-    private OffsetDateTime exitTime;
-
-    @Column(name = "license_plate", nullable = false)
-    private String licensePlate;
-
-    @Column(name = "parking_spot")
-    private Integer parkingSpot;
-
-    @Column(name = "finished")
-    private Boolean finished;
-
-    @Column(name = "price", nullable = false)
-    private BigDecimal price;
-
-    @Column(name = "bill_id", unique = true)
+    @Column(name = "bill_id")
     private Long billId;
 
     public SsoTicket() {}
 
-    public SsoTicket(Integer userId, String licensePlate, Integer parkingSpot, BigDecimal price) {
+    public SsoTicket(Integer userId, Ticket ticket) {
         this.userId = userId;
-        this.entryTime = OffsetDateTime.now();
-        this.licensePlate = licensePlate;
-        this.parkingSpot = parkingSpot;
-        this.finished = false;
-        this.price = price;
+        this.ticket = ticket;
     }
 
-    public Integer getTicketId() { return ticketId; }
-    public void setTicketId(Integer ticketId) { this.ticketId = ticketId; }
+    public Integer getSsoTicketId() { return ssoTicketId; }
+    public void setSsoTicketId(Integer ssoTicketId) { this.ssoTicketId = ssoTicketId; }
+
+    public Ticket getTicket() { return ticket; }
+    public void setTicket(Ticket ticket) { this.ticket = ticket; }
 
     public Integer getUserId() { return userId; }
     public void setUserId(Integer userId) { this.userId = userId; }
 
-    public OffsetDateTime getEntryTime() { return entryTime; }
-    public void setEntryTime(OffsetDateTime entryTime) { this.entryTime = entryTime; }
-
-    public OffsetDateTime getExitTime() { return exitTime; }
-    public void setExitTime(OffsetDateTime exitTime) { this.exitTime = exitTime; }
-
-    public String getLicensePlate() { return licensePlate; }
-    public void setLicensePlate(String licensePlate) { this.licensePlate = licensePlate; }
-
-    public Integer getParkingSpot() { return parkingSpot; }
-    public void setParkingSpot(Integer parkingSpot) { this.parkingSpot = parkingSpot; }
-
-    public Boolean getFinished() { return finished; }
-    public void setFinished(Boolean finished) { this.finished = finished; }
-
-    public BigDecimal getPrice() { return price; }
-    public void setPrice(BigDecimal price) { this.price = price; }
-
     public Long getBillId() { return billId; }
     public void setBillId(Long billId) { this.billId = billId; }
 
-    public void finish() {
-        this.exitTime = OffsetDateTime.now();
-        this.finished = true;
-    }
+    @Transient
+    public Integer getTicketId() { return ticket != null ? ticket.getTicketId() : null; }
+
+    @Transient
+    public java.time.OffsetDateTime getEntryTime() { return ticket != null ? ticket.getEntryTime() : null; }
+
+    @Transient
+    public java.time.OffsetDateTime getExitTime() { return ticket != null ? ticket.getExitTime() : null; }
+
+    @Transient
+    public String getLicensePlate() { return ticket != null ? ticket.getLicensePlate() : null; }
+
+    @Transient
+    public Integer getParkingSpot() { return ticket != null ? ticket.getParkingSpot() : null; }
+
+    @Transient
+    public Boolean getFinished() { return ticket != null ? ticket.getFinished() : null; }
+
+    @Transient
+    public java.math.BigDecimal getPrice() { return ticket != null ? ticket.getPrice() : null; }
 }

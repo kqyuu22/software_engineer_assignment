@@ -78,10 +78,28 @@
     <h1>Admin Control Panel</h1>
 
     <div class="card">
-        <h3>Global Pricing Management</h3>
-        <p>Current System Price: $<span id="current-price" style="font-weight: bold;">Loading...</span></p>
-        <input type="number" id="newPrice" placeholder="Enter new price">
-        <button onclick="updatePrice()">Update Global Price</button>
+        <h3>Role-Based Pricing Management</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Role</th>
+                    <th>Price (VND)</th>
+                </tr>
+            </thead>
+            <tbody id="price-body">
+                <tr><td colspan="2">Loading...</td></tr>
+            </tbody>
+        </table>
+        <div style="margin-top: 10px;">
+            <select id="pricePriority">
+            <option value="STAFF">STAFF</option>
+            <option value="LECTURER">LECTURER</option>
+            <option value="STUDENT">STUDENT</option>
+            <option value="OTHER">OTHER</option>
+            </select>
+            <input type="number" id="newPrice" placeholder="Enter new price">
+            <button onclick="updatePrice()">Update Price</button>
+        </div>
     </div>
 
     <div class="card">
@@ -107,17 +125,6 @@
     <div class="card">
         <h3>Slot Management & Bulk Assignment</h3>
 
-        <div style="margin-bottom: 15px;">
-            <strong>Add Single Slot:</strong>
-            <select id="prioritySelect">
-                <option value="STAFF">STAFF</option>
-                <option value="LECTURER">LECTURER</option>
-                <option value="STUDENT">STUDENT</option>
-                <option value="OTHER">OTHER</option>
-            </select>
-            <button onclick="addSlot()" class="btn-success">Add New Slot</button>
-        </div>
-
         <hr>
 
         <div style="margin-bottom: 15px;">
@@ -139,7 +146,6 @@
                     <th>Slot ID</th>
                     <th>Status</th>
                     <th>Priority</th>
-                    <th>Admin Actions</th>
                 </tr>
             </thead>
             <tbody id="slots-body"></tbody>
@@ -155,13 +161,16 @@
 
 
         // --- PRICING ---
-        async function loadPrice() {
+        async function loadPrices() {
             try {
                 const res = await fetch(`${API_BASE}/price`, { headers: authHeaders });
                 console.log("Price API Response:", res);
                 await handleResponse(res);
                 const data = await res.json();
-                document.getElementById("current-price").innerText = data.price;
+                const rows = Object.entries(data).map(([role, price]) => {
+                    return `<tr><td>${role}</td><td>${price}</td></tr>`;
+                }).join("");
+                document.getElementById("price-body").innerHTML = rows || "<tr><td colspan=\"2\">No prices found</td></tr>";
             } catch (e) { }
         }
 
@@ -169,17 +178,18 @@
             const p = document.getElementById('newPrice').value;
             if (!p) return;
             try {
-                const res = await fetch(`${API_BASE}/price?newPrice=${p}`, { method: "PUT", headers: authHeaders });
+                const priority = document.getElementById('pricePriority').value;
+                const res = await fetch(`${API_BASE}/price?priority=${priority}&newPrice=${p}`, { method: "PUT", headers: authHeaders });
                 console.log("Update Price API Response:", res);
                 await handleResponse(res);
                 alert((await res.json()).message);
-                loadPrice();
+                loadPrices();
             } catch (e) { }
         }
 
         // --- SLOTS MANAGEMENT ---
 
-        // 1. Fetch and render the slots
+        // Fetch and render the slots
         async function loadSlots() {
             try {
                 const res = await fetch(`${API_BASE}/slots`, { headers: authHeaders });
@@ -193,45 +203,13 @@
                                 <td>${s.slotId}</td>
                                 <td><strong>${s.status}</strong></td>
                                 <td>${s.priority}</td>
-                                <td><button class="btn-danger" onclick="removeSlot(${s.slotId})">Delete Slot</button></td>
                              </tr>`;
                 });
                 document.getElementById("slots-body").innerHTML = html;
             } catch (e) { }
         }
 
-        // 2. Add a slot and refresh
-        async function addSlot() {
-            const role = document.getElementById('prioritySelect').value;
-            try {
-                const res = await fetch(`${API_BASE}/slots?priority=${role}`, {
-                    method: "POST",
-                    headers: authHeaders
-                });
-                console.log("Add Slot API Response:", res);
-                await handleResponse(res);
-                showErrorToast((await res.json()).message); // Using toast for success messages too!
-                loadSlots(); // <--- REFRESH THE TABLE AUTOMATICALLY
-            } catch (e) { }
-        }
-
-        // 3. Delete a slot and refresh
-        async function removeSlot(id) {
-            if (!confirm(`Are you sure you want to permanently delete Slot ${id}?`)) return;
-
-            try {
-                const res = await fetch(`${API_BASE}/slots/${id}`, {
-                    method: "DELETE",
-                    headers: authHeaders
-                });
-                console.log("Delete Slot API Response:", res);
-                await handleResponse(res);
-                showErrorToast((await res.json()).message);
-                loadSlots(); // <--- REFRESH THE TABLE AUTOMATICALLY
-            } catch (e) { }
-        }
-
-        // 4. Bulk update and refresh
+        // Bulk update and refresh
         async function updateBulkSlots() {
             const inputStr = document.getElementById('bulkSlotInput').value;
             const priority = document.getElementById('bulkPrioritySelect').value;
@@ -263,7 +241,7 @@
         window.onload = async () => {
             try {
                 // We 'await' each one so they finish in a specific order
-                await loadPrice();
+                await loadPrices();
                 await loadTickets();
                 await loadSlots();
 

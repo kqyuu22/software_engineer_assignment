@@ -27,8 +27,8 @@ public class ParkingService {
         return slotDb.findAllByOrderBySlotIdAsc();
     }
     
-    public java.math.BigDecimal getCurrentPrice() {
-        return priceDb.findById(1).map(Price::getPrice).orElse(java.math.BigDecimal.valueOf(5000.00));
+    public java.math.BigDecimal getCurrentPrice(Role priority) {
+        return priceDb.findById(priority).map(Price::getPrice).orElse(java.math.BigDecimal.valueOf(0.00));
     }
 
     public List<TicketView> searchTickets(String query) {

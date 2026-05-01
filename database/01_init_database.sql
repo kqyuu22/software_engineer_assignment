@@ -1,13 +1,14 @@
 -- ==============================================================================
 -- 0. DROP THE WHOLE DATABASE
 -- ==============================================================================
-do $$ declare
-    r record;
-begin
-    for r in (select tablename from pg_tables where schemaname = 'my-schema-name') loop
-        execute 'drop table if exists ' || quote_ident(r.tablename) || ' cascade';
-    end loop;
-end $$;
+-- Drop ALL objects in the public schema (tables, enums, triggers, functions, views, etc.)
+drop schema if exists public cascade;
+
+-- Recreate empty public schema
+create schema if not exists public;
+
+-- (Optional but common) Ensure default grants work
+grant usage on schema public to public;
 
 -- ==============================================================================
 -- 1. CUSTOM TYPES (ENUMS)
@@ -22,9 +23,10 @@ CREATE TYPE bill_status AS ENUM ('UNPAID', 'PAID', 'CANCELLED');
 -- ==============================================================================
 -- 2. BASE CONFIGURATION TABLE
 -- Must be created before the helper function queries it.
+-- Price is role-based, so we set each unique role as primary key
 -- ==============================================================================
 CREATE TABLE public.price (
-    id integer PRIMARY KEY CHECK (id = 1) DEFAULT 1,
+    slot_priority slot_priority PRIMARY KEY,
     price numeric(10, 2) NOT NULL DEFAULT 0.00
 );
 
@@ -32,10 +34,7 @@ CREATE TABLE public.price (
 -- 3. UTILITY FUNCTIONS
 -- Must be created before the ticket tables so they can be used as DEFAULTs.
 -- ==============================================================================
-CREATE OR REPLACE FUNCTION get_current_base_price()
-RETURNS numeric(10, 2) AS $$
-    SELECT price FROM public.price WHERE id = 1;
-$$ LANGUAGE sql;
+
 
 -- ==============================================================================
 -- 4. CORE ENTITIES
@@ -86,26 +85,26 @@ CREATE TABLE public.billing (
 -- 6. TICKETING SYSTEM (Split Architecture)
 -- Separating authenticated users from transient guests.
 -- ==============================================================================
-CREATE TABLE public.sso_tickets (
+CREATE TABLE public.tickets (
     ticket_id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id integer NOT NULL REFERENCES public.sso_users(user_id) ON DELETE CASCADE,
     entry_time timestamptz NOT NULL DEFAULT now(),
     exit_time timestamptz,
     license_plate character varying NOT NULL,
     parking_spot integer REFERENCES public.parking_slots(slot_id) ON DELETE SET NULL,
     finished boolean NOT NULL DEFAULT false,
-    price numeric(10, 2) NOT NULL DEFAULT get_current_base_price(), 
+    price numeric(10, 2) NOT NULL DEFAULT 0.0
+);
+
+CREATE TABLE public.sso_tickets (
+    sso_ticket_id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    ticket_id integer REFERENCES public.tickets(ticket_id) ON DELETE CASCADE,
+    user_id integer NOT NULL REFERENCES public.sso_users(user_id) ON DELETE CASCADE,
     bill_id bigint REFERENCES public.billing(bill_id) ON DELETE SET NULL
 );
 
 CREATE TABLE public.guest_tickets (
-    ticket_id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    entry_time timestamptz NOT NULL DEFAULT now(),
-    exit_time timestamptz,
-    license_plate character varying NOT NULL,
-    parking_spot integer REFERENCES public.parking_slots(slot_id) ON DELETE SET NULL,
-    finished boolean NOT NULL DEFAULT false,
-    price numeric(10, 2) NOT NULL DEFAULT get_current_base_price(),
+    guest_ticket_id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    ticket_id integer REFERENCES public.tickets(ticket_id) ON DELETE CASCADE,
     final_calculated_fee numeric(10, 2), 
     paid_directly boolean NOT NULL DEFAULT false
 );
@@ -114,25 +113,27 @@ CREATE TABLE public.guest_tickets (
 -- 7. UNIFIED VIEW
 -- Provides the backend operators with a single pane of glass for all tickets.
 -- ==============================================================================
-CREATE VIEW public.all_tickets_view AS
+CREATE OR REPLACE VIEW public.all_tickets_view AS
 SELECT 
     'SSO' AS ticket_type,
-    ticket_id,
-    user_id::text AS holder_identifier, 
-    entry_time,
-    exit_time,
-    license_plate,
-    parking_spot,
-    finished
-FROM public.sso_tickets
+    t.ticket_id,
+    st.user_id::text AS holder_identifier, 
+    t.entry_time,
+    t.exit_time,
+    t.license_plate,
+    t.parking_spot,
+    t.finished
+FROM public.tickets t
+JOIN public.sso_tickets st ON t.ticket_id = st.ticket_id
 UNION ALL
 SELECT 
     'GUEST' AS ticket_type,
-    ticket_id,
-    'GUEST-' || ticket_id::text AS holder_identifier, 
-    entry_time,
-    exit_time,
-    license_plate,
-    parking_spot,
-    finished
-FROM public.guest_tickets;
+    t.ticket_id,
+    'GUEST-' || t.ticket_id::text AS holder_identifier, 
+    t.entry_time,
+    t.exit_time,
+    t.license_plate,
+    t.parking_spot,
+    t.finished
+FROM public.tickets t
+JOIN public.guest_tickets gt ON t.ticket_id = gt.ticket_id;

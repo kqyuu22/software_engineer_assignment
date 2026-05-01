@@ -8,6 +8,7 @@ import com.se.sebtl.model.Role;
 import com.se.sebtl.model.SsoTicket;
 import com.se.sebtl.model.GuestTicket;
 import com.se.sebtl.model.Price;
+import com.se.sebtl.model.Ticket;
 import com.se.sebtl.model.Alert;
 import com.se.sebtl.model.AlertType;
 import com.se.sebtl.repository.SsoTicketRepository;
@@ -16,10 +17,10 @@ import com.se.sebtl.repository.UnimemberRepository;
 import com.se.sebtl.repository.PriceRepository;
 import com.se.sebtl.repository.BillingRepository;
 import com.se.sebtl.repository.AlertRepository;
+import com.se.sebtl.repository.TicketRepository;
 import com.se.sebtl.service.iot.Gate;
 import com.se.sebtl.service.iot.Camera;
 
-import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +39,7 @@ public class SimulationApiController {
     private final PriceRepository priceRepository;
     private final BillingRepository billingRepository;
     private final AlertRepository alertRepository;
+    private final TicketRepository ticketRepository;
     private final Gate gate;
     private final Camera camera;
 
@@ -50,6 +52,7 @@ public class SimulationApiController {
             PriceRepository priceRepository,
             BillingRepository billingRepository,
             AlertRepository alertRepository,
+            TicketRepository ticketRepository,
             Gate gate,
             Camera camera) {
         this.hardwareSimulator = hardwareSimulator;
@@ -60,6 +63,7 @@ public class SimulationApiController {
         this.priceRepository = priceRepository;
         this.billingRepository = billingRepository;
         this.alertRepository = alertRepository;
+        this.ticketRepository = ticketRepository;
         this.gate = gate;
         this.camera = camera;
     }
@@ -198,16 +202,24 @@ public class SimulationApiController {
         }
 
         // 3. Create and save the ticket
-        java.math.BigDecimal currentPrice = priceRepository.findById(1).map(Price::getPrice).orElse(java.math.BigDecimal.valueOf(5000.00));
+        java.math.BigDecimal currentPrice = priceRepository.findById(role).map(Price::getPrice).orElse(java.math.BigDecimal.ZERO);
         
         Integer ticketId;
+        Ticket ticket = new Ticket();
+        ticket.setEntryTime(java.time.OffsetDateTime.now());
+        ticket.setLicensePlate(licensePlate);
+        ticket.setParkingSpot(spotId);
+        ticket.setFinished(false);
+        ticket.setPrice(currentPrice);
+        ticketRepository.save(ticket);
+
         if (userId > 0 && unimemberRepository.existsById(userId)) {
-            SsoTicket ticket = new SsoTicket(userId, licensePlate, spotId, currentPrice);
-            ssoTicketRepository.save(ticket);
+            SsoTicket ssoTicket = new SsoTicket(userId, ticket);
+            ssoTicketRepository.save(ssoTicket);
             ticketId = ticket.getTicketId();
         } else {
-            GuestTicket ticket = new GuestTicket(licensePlate, spotId, currentPrice);
-            guestTicketRepository.save(ticket);
+            GuestTicket guestTicket = new GuestTicket(ticket);
+            guestTicketRepository.save(guestTicket);
             ticketId = ticket.getTicketId();
         }
         
@@ -239,7 +251,7 @@ public class SimulationApiController {
                 return ResponseEntity.badRequest().body(response);
             }
             SsoTicket ticket = ticketOpt.get();
-            if (!ticket.getLicensePlate().equalsIgnoreCase(licensePlate)) {
+            if (ticket.getLicensePlate() == null || !ticket.getLicensePlate().equalsIgnoreCase(licensePlate)) {
                 response.put("error", "Exception: Registered plate mismatch. Expected " + ticket.getLicensePlate() + " but scanned " + licensePlate);
                 Alert alert = new Alert();
                 alert.setType(AlertType.SECURITY_BREACH);
@@ -247,7 +259,7 @@ public class SimulationApiController {
                 alertRepository.save(alert);
                 return ResponseEntity.badRequest().body(response);
             }
-            ssoTicketRepository.updateExitTime(ticket.getTicketId(), java.time.OffsetDateTime.now());
+            ticketRepository.updateExitTimeAndFinish(ticket.getTicketId(), java.time.OffsetDateTime.now());
             ticketId = ticket.getTicketId();
             if (ticket.getParkingSpot() != null) {
                 hardwareSimulator.simulateCarDeparture(ticket.getParkingSpot());
@@ -263,7 +275,7 @@ public class SimulationApiController {
                 return ResponseEntity.badRequest().body(response);
             }
             GuestTicket ticket = ticketOpt.get();
-            guestTicketRepository.updateExitTime(ticket.getTicketId(), java.time.OffsetDateTime.now());
+            ticketRepository.updateExitTimeAndFinish(ticket.getTicketId(), java.time.OffsetDateTime.now());
             ticketId = ticket.getTicketId();
             if (ticket.getParkingSpot() != null) {
                 hardwareSimulator.simulateCarDeparture(ticket.getParkingSpot());
