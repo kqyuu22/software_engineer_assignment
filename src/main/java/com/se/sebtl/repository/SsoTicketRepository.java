@@ -35,4 +35,9 @@ public interface SsoTicketRepository extends JpaRepository<SsoTicket, Integer> {
     // (Optional) If you also want to search by exact User ID
     @Query("SELECT s FROM SsoTicket s JOIN s.ticket t WHERE s.userId = :userId ORDER BY t.entryTime DESC")
     List<SsoTicket> findByUserIdOrderByEntryTimeDesc(@Param("userId") int userId);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("DELETE FROM SsoTicket s WHERE s.ticket = :ticket")
+    @org.springframework.transaction.annotation.Transactional
+    void deleteByTicket(@Param("ticket") com.se.sebtl.model.Ticket ticket);
 }

@@ -1,9 +1,11 @@
 package com.se.sebtl.controller;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import com.se.sebtl.service.iot.HardwareSimulatorService;
 import com.se.sebtl.service.IoTManagerService;
+import com.se.sebtl.service.ParkingService;
 import com.se.sebtl.model.Role;
 import com.se.sebtl.model.SsoTicket;
 import com.se.sebtl.model.GuestTicket;
@@ -11,6 +13,7 @@ import com.se.sebtl.model.Price;
 import com.se.sebtl.model.Ticket;
 import com.se.sebtl.model.Alert;
 import com.se.sebtl.model.AlertType;
+import com.se.sebtl.model.ParkingSlot;
 import com.se.sebtl.repository.SsoTicketRepository;
 import com.se.sebtl.repository.GuestTicketRepository;
 import com.se.sebtl.repository.UnimemberRepository;
@@ -40,6 +43,8 @@ public class SimulationApiController {
     private final BillingRepository billingRepository;
     private final AlertRepository alertRepository;
     private final TicketRepository ticketRepository;
+    private final ParkingService parkingService;
+
     private final Gate gate;
     private final Camera camera;
 
@@ -53,6 +58,7 @@ public class SimulationApiController {
             BillingRepository billingRepository,
             AlertRepository alertRepository,
             TicketRepository ticketRepository,
+            ParkingService parkingService,
             Gate gate,
             Camera camera) {
         this.hardwareSimulator = hardwareSimulator;
@@ -66,6 +72,29 @@ public class SimulationApiController {
         this.ticketRepository = ticketRepository;
         this.gate = gate;
         this.camera = camera;
+        this.parkingService = parkingService;
+    }
+
+    @GetMapping("/slots")
+    public ResponseEntity<List<ParkingSlot>> getAllSlots() {
+        return ResponseEntity.ok(parkingService.getAllSlots()); 
+    }
+
+    @GetMapping("/signs")
+    public ResponseEntity<?> getSignStatus() {
+        return ResponseEntity.ok(iotManager.getSignDirections());
+    }
+
+    @GetMapping("/scan-plate")
+    public ResponseEntity<?> scanPlate() {
+        Map<String, String> response = new HashMap<>();
+        String licensePlate = camera.capture();
+        if (licensePlate == null) {
+            response.put("error", "Camera failed to capture license plate.");
+            return ResponseEntity.badRequest().body(response);
+        }
+        response.put("licensePlate", licensePlate);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/assign-spot")
@@ -147,7 +176,7 @@ public class SimulationApiController {
             .filter(t -> t.getFinished() != null && !t.getFinished())
             .forEach(t -> {
                 Map<String, Object> map = new HashMap<>();
-                map.put("userId", -1);
+                map.put("userId", "Guest");
                 map.put("licensePlate", t.getLicensePlate());
                 active.add(map);
             });
@@ -155,6 +184,7 @@ public class SimulationApiController {
         return ResponseEntity.ok(active);
     }
 
+    @Transactional
     @PostMapping("/entrance")
     public ResponseEntity<?> entrance(@RequestParam int userId, @RequestParam(required = false) String existingPlate) {
         Map<String, Object> response = new HashMap<>();
@@ -230,10 +260,12 @@ public class SimulationApiController {
         response.put("message", "Vehicle entered successfully. Gate is opening. Plate scanned: " + licensePlate + ", Assigned spot: " + spotId);
         response.put("ticketId", ticketId);
         response.put("licensePlate", licensePlate);
+        response.put("slotId", spotId);
         
         return ResponseEntity.ok(response);
     }
 
+    @Transactional
     @PostMapping("/exit")
     public ResponseEntity<?> exit(@RequestParam int userId, @RequestParam String licensePlate) {
         Map<String, Object> response = new HashMap<>();

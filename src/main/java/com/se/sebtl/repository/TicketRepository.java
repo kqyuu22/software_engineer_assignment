@@ -9,4 +9,7 @@ public interface TicketRepository extends JpaRepository<Ticket, Integer> {
 	@org.springframework.transaction.annotation.Transactional
 	void updateExitTimeAndFinish(@org.springframework.data.repository.query.Param("ticketId") Integer ticketId,
 								 @org.springframework.data.repository.query.Param("exitTime") java.time.OffsetDateTime exitTime);
+
+	@org.springframework.data.jpa.repository.Query("SELECT t FROM Ticket t WHERE t.parkingSpot = :parkingSpot AND t.finished = false")
+	java.util.List<Ticket> findByParkingSpotAndFinishedFalse(@org.springframework.data.repository.query.Param("parkingSpot") Integer parkingSpot);
 }

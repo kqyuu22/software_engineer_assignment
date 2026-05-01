@@ -125,3 +125,27 @@ CREATE TRIGGER t_populate_price
 BEFORE INSERT ON public.tickets
 FOR EACH ROW
 EXECUTE FUNCTION trg_set_ticket_price();
+
+
+-- Ensure no same user is active in more than two tickets
+CREATE OR REPLACE FUNCTION check_active_sso_user() RETURNS TRIGGER AS $$
+BEGIN
+    -- Check if this user already has an unfinished ticket in the system
+    IF EXISTS (
+        SELECT 1 
+        FROM public.sso_tickets st
+        JOIN public.tickets t ON st.ticket_id = t.ticket_id
+        WHERE st.user_id = NEW.user_id 
+        AND t.finished = false
+    ) THEN
+        RAISE EXCEPTION 'User % already has an active, unfinished parking ticket.', NEW.user_id;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER enforce_single_active_sso_ticket
+BEFORE INSERT ON public.sso_tickets
+FOR EACH ROW 
+EXECUTE FUNCTION check_active_sso_user();
