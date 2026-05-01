@@ -16,22 +16,23 @@ test.describe('Admin Dashboard', () => {
         await expect(page.locator('h1')).toHaveText('Admin Control Panel');
     });
 
-    test('should be able to view and update the global price', async ({ page }) => {
+    test('should be able to view and update the role-based price', async ({ page }) => {
         // Wait for the price to load
-        await expect(page.locator('#current-price')).not.toHaveText('Loading...', { timeout: 5000 });
+        await expect(page.locator('#price-body')).not.toContainText('Loading...', { timeout: 5000 });
 
         // Update price
+        await page.selectOption('#pricePriority', 'STUDENT');
         await page.fill('#newPrice', '6000');
 
         // Automatically accept the toast/alert message
         page.on('dialog', dialog => dialog.accept());
 
         const updatePromise = page.waitForResponse(response => response.url().includes('/admin/price') && response.status() === 200);
-        await page.click('button:has-text("Update Global Price")');
+        await page.click('button:has-text("Update Price")');
         await updatePromise;
 
         // The UI should theoretically reload the price or show a toast
-        await expect(page.locator('#current-price')).toHaveText('6000', { timeout: 5000 });
+        await expect(page.locator('#price-body')).toContainText('6000', { timeout: 5000 });
     });
 
     test('should be able to add and bulk update slots', async ({ page }) => {
@@ -39,11 +40,11 @@ test.describe('Admin Dashboard', () => {
         page.on('dialog', dialog => dialog.accept());
 
         // Add single slot
-        await page.selectOption('#prioritySelect', 'STAFF');
+        // await page.selectOption('#prioritySelect', 'STAFF'); // Obsolete, no add slot
 
-        const addPromise = page.waitForResponse(response => response.url().includes('/admin/slots') && response.request().method() === 'POST');
-        await page.click('button:has-text("Add New Slot")');
-        await addPromise;
+        // const addPromise = page.waitForResponse(response => response.url().includes('/admin/slots') && response.request().method() === 'POST');
+        // await page.click('button:has-text("Add New Slot")');
+        // await addPromise;
 
         // Bulk update slots
         await page.fill('#bulkSlotInput', '1-2');
