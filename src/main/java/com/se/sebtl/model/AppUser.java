@@ -7,7 +7,6 @@ import jakarta.persistence.*;
 public class AppUser {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "user_id")
     private Integer userId;
 
@@ -21,6 +20,7 @@ public class AppUser {
     private String password;
 
     @Enumerated(EnumType.STRING)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.NAMED_ENUM)
     @Column(name = "role", nullable = false)
     private AppRole role;
 

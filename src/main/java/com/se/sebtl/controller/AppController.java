@@ -38,4 +38,9 @@ public class AppController {
 
         return "forward:/member.html";
     }
+
+    @GetMapping("/simulation")
+    public String simulation() {
+        return "forward:/simulation.html";
+    }
 }

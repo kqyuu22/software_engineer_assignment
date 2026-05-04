@@ -18,6 +18,7 @@
         <input type="password" id="password" placeholder="Password">
         <p id="error">Invalid credentials</p>
         <button onclick="login()">Login</button>
+        <button onclick="window.location.href='/simulation'" style="margin-top: 10px; background: #6c757d;">Go to Simulation</button>
     </div>
 
     <script>
@@ -36,7 +37,7 @@
             const u = document.getElementById('username').value;
             const p = document.getElementById('password').value;
             
-            const response = await fetch("http://localhost:8080/auth/login", {
+            const response = await fetch("/auth/login", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ username: u, password: p })

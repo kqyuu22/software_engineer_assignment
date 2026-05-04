@@ -31,6 +31,17 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
     }
 
+    // Handle DB Unique Constraint Violations (e.g. same license plate entered twice)
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ApiErrorResponse> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException ex) {
+        ApiErrorResponse response = new ApiErrorResponse(
+            HttpStatus.BAD_REQUEST.value(),
+            "Bad Request",
+            "Database constraint violated. This usually happens if the license plate is already actively parked."
+        );
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
     // Handle Database Crashes Automatically (500 Internal Server Error)
     // Spring throws DataAccessException natively if Supabase goes offline
     @ExceptionHandler(DataAccessException.class)

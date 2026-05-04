@@ -8,8 +8,9 @@ import com.se.sebtl.service.ParkingService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -32,13 +33,13 @@ public class AdminController {
     // --- TICKET MANAGEMENT ---
 
     @GetMapping("/history")
-    public ResponseEntity<List<Ticket>> getHistory(@RequestHeader("Authorization") String token) {
+    public ResponseEntity<List<TicketView>> getHistory(@RequestHeader("Authorization") String token) {
         securityService.verifyRole(token, AppRole.ADMIN);
         return ResponseEntity.ok(parkingService.getAllTickets());
     }
 
     @GetMapping("/history/search")
-    public ResponseEntity<List<Ticket>> searchHistory(@RequestHeader("Authorization") String token, 
+    public ResponseEntity<List<TicketView>> searchHistory(@RequestHeader("Authorization") String token, 
                                                       @RequestParam String query) {
         securityService.verifyRole(token, AppRole.ADMIN);
         return ResponseEntity.ok(parkingService.searchTickets(query));
@@ -93,29 +94,36 @@ public class AdminController {
     // --- PRICE MANAGEMENT ---
 
     @GetMapping("/price")
-    public ResponseEntity<Map<String, Double>> getPrice(@RequestHeader("Authorization") String token) {
+    public ResponseEntity<Map<String, java.math.BigDecimal>> getPrice(@RequestHeader("Authorization") String token) {
         securityService.verifyRole(token, AppRole.ADMIN);
-        
-        Price price = priceDb.findById(1).orElse(null);
-        Double value = (price != null) ? price.getPrice() : 5000.0;
 
-        return ResponseEntity.ok(Collections.singletonMap("price", value));
+        Map<Role, java.math.BigDecimal> values = new java.util.EnumMap<>(Role.class);
+        priceDb.findAll().forEach(p -> values.put(p.getPriority(), p.getPrice()));
+
+        Map<String, java.math.BigDecimal> response = new LinkedHashMap<>();
+        for (Role role : Role.values()) {
+            response.put(role.name(), values.getOrDefault(role, java.math.BigDecimal.ZERO));
+        }
+
+        return ResponseEntity.ok(response);
     }
 
     @PutMapping("/price")
-    public ResponseEntity<MessageResponse> setPrice(@RequestHeader("Authorization") String token, 
-                                      @RequestParam double newPrice) {
+    public ResponseEntity<MessageResponse> setPrice(@RequestHeader("Authorization") String token,
+                                                    @RequestParam Role priority,
+                                                    @RequestParam java.math.BigDecimal newPrice) {
         securityService.verifyRole(token, AppRole.ADMIN);
-        Price price = priceDb.findById(1).orElse(null);
+        Price price = priceDb.findById(priority).orElse(null);
         if (price != null) {
             price.setPrice(newPrice);
             priceDb.save(price);
         } else {
             Price newPriceEntry = new Price();
+            newPriceEntry.setPriority(priority);
             newPriceEntry.setPrice(newPrice);
             priceDb.save(newPriceEntry);
         }
-        return ResponseEntity.ok(new MessageResponse("Global price updated to " + newPrice + "VND"));
+        return ResponseEntity.ok(new MessageResponse("Price for " + priority + " updated to " + newPrice + " VND"));
     }
 
     // DTO to capture the JSON body for bulk slot updates

@@ -17,18 +17,15 @@ import java.util.Optional;
 @CrossOrigin(origins = "*")
 public class OperatorController {
 
-    private final TicketRepository ticketDb;
     private final AlertRepository alertDb;
     private final SecurityService securityService;
     private final ParkingService parkingService;
 
     // SessionManager is removed here assuming you take the JWT advice, 
     // but the @RequestHeader ensures the request is tracked to an operator ID.
-    public OperatorController(TicketRepository ticketDb,
-                              AlertRepository alertDb,
+    public OperatorController(AlertRepository alertDb,
                               SecurityService securityService,
                               ParkingService parkingService) {
-        this.ticketDb = ticketDb;
         this.alertDb = alertDb;
         this.securityService = securityService;
         this.parkingService = parkingService;   
@@ -46,14 +43,14 @@ public class OperatorController {
     // --- TICKET HISTORY ---
 
     @GetMapping("/history")
-    public ResponseEntity<List<Ticket>> getHistory(@RequestHeader("Authorization") String token) {
+    public ResponseEntity<List<TicketView>> getHistory(@RequestHeader("Authorization") String token) {
         securityService.verifyRole(token, AppRole.OPERATOR); // Verify the user is an operator
         // Returns the ticket history chronologically (newest first)
         return ResponseEntity.ok(parkingService.getAllTickets());
     }
 
     @GetMapping("/history/search")
-    public ResponseEntity<List<Ticket>> searchHistory(@RequestHeader("Authorization") String token, 
+    public ResponseEntity<List<TicketView>> searchHistory(@RequestHeader("Authorization") String token, 
                                                       @RequestParam String query) {
         securityService.verifyRole(token, AppRole.OPERATOR); // Verify the user is an operator
 

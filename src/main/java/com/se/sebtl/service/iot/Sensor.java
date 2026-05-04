@@ -6,6 +6,7 @@ import com.se.sebtl.service.IoTManagerService;
 public class Sensor {
     private int slotId;
     private IoTManagerService iotManager;
+    private SlotStatus internalState = SlotStatus.AVAILABLE;
 
     public Sensor(int slotId, IoTManagerService iotManager) {
         this.slotId = slotId;
@@ -13,15 +14,21 @@ public class Sensor {
     }
 
     public void reportAvailable() {
+        this.internalState = SlotStatus.AVAILABLE;
         iotManager.onSensorUpdate(slotId, SlotStatus.AVAILABLE);
     }
 
     public void reportOccupied() {
+        this.internalState = SlotStatus.OCCUPIED;
         iotManager.onSensorUpdate(slotId, SlotStatus.OCCUPIED);
     }
 
     public void reportFailure() {
         // simulate sensor malfunction
         iotManager.onSensorUpdate(slotId, SlotStatus.UNKNOWN);
+    }
+
+    public void restoreState() {
+        iotManager.onSensorUpdate(slotId, internalState);
     }
 }

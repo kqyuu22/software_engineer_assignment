@@ -7,6 +7,11 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
+
+import com.se.sebtl.repository.TicketRepository;
+import com.se.sebtl.repository.SsoTicketRepository;
+import com.se.sebtl.repository.GuestTicketRepository;
 
 import java.time.Instant;
 import java.time.Duration;
@@ -19,15 +24,43 @@ public class IoTManagerService {
 
     private final ParkingSlotRepository slotRepository; 
     private final TaskScheduler taskScheduler; 
-    private List<IntersectionSign> signs;
+    private final TransactionTemplate transactionTemplate;
+    private final TicketRepository ticketRepository;
+    private final SsoTicketRepository ssoTicketRepository;
+    private final GuestTicketRepository guestTicketRepository;
 
-    public IoTManagerService(ParkingSlotRepository slotRepository, TaskScheduler taskScheduler) {
+    private List<IntersectionSign> signs;
+    private java.util.Map<Integer, Direction> currentSignDirections = new java.util.concurrent.ConcurrentHashMap<>();
+    private ParkingLotStatus currentLotStatus = ParkingLotStatus.AVAILABLE;
+
+    public IoTManagerService(ParkingSlotRepository slotRepository, 
+                             TaskScheduler taskScheduler,
+                             TransactionTemplate transactionTemplate,
+                             TicketRepository ticketRepository,
+                             SsoTicketRepository ssoTicketRepository,
+                             GuestTicketRepository guestTicketRepository) {
         this.slotRepository = slotRepository;
         this.taskScheduler = taskScheduler;
+        this.transactionTemplate = transactionTemplate;
+        this.ticketRepository = ticketRepository;
+        this.ssoTicketRepository = ssoTicketRepository;
+        this.guestTicketRepository = guestTicketRepository;
     }
 
     public void setSigns(List<IntersectionSign> signs) {
         this.signs = signs;
+        for (int i = 0; i < signs.size(); i++) {
+            currentSignDirections.put(i, Direction.NONE);
+        }
+    }
+
+    public java.util.Map<String, Object> getSignDirections() {
+        java.util.Map<String, Object> result = new java.util.HashMap<>();
+        for (int i = 0; i < signs.size(); i++) {
+            result.put("sign_" + i, currentSignDirections.getOrDefault(i, Direction.NONE));
+        }
+        result.put("lotStatus", currentLotStatus);
+        return result;
     }
 
     @Transactional
@@ -64,7 +97,10 @@ public class IoTManagerService {
         
         for (int i = 0; i < signs.size(); i++) {
             IntersectionSign sign = signs.get(i);
-            sign.updateDirection(getDirectionForSlot(slotId, i));
+            Direction direction = getDirectionForSlot(slotId, i);
+            sign.updateDirection(direction);
+            currentSignDirections.put(i, direction);
+            System.out.println("[SIGN UPDATE] Sign " + i + " direction: " + direction);
             try {
                 Thread.sleep(3000); // Wait 3 seconds before updating next sign
             } catch (InterruptedException e) {
@@ -97,15 +133,27 @@ public class IoTManagerService {
     }
 
     private void startReservationTimer(int slotId) {
-        Instant executeTime = Instant.now().plus(Duration.ofMinutes(2)); // Reduced to 2 minutes
+        Instant executeTime = Instant.now().plus(Duration.ofSeconds(30)); // Reduced to 30 seconds
         
         taskScheduler.schedule(() -> {
-            slotRepository.findById(slotId).ifPresent(slot -> {
-                if (slot.getStatus() == SlotStatus.RESERVED) {
-                    slot.setStatus(SlotStatus.AVAILABLE);
-                    slotRepository.save(slot);
-                    System.out.println("[SYSTEM] Timer expired. Slot " + slotId + " released back to AVAILABLE.");
-                }
+            transactionTemplate.execute(status -> {
+                slotRepository.findById(slotId).ifPresent(slot -> {
+                    if (slot.getStatus() == SlotStatus.RESERVED) {
+                        slot.setStatus(SlotStatus.AVAILABLE);
+                        slotRepository.save(slot);
+                        System.out.println("[SYSTEM] Timer expired. Slot " + slotId + " released back to AVAILABLE.");
+                        
+                        // Delete any unfinished ticket holding this reservation
+                        List<Ticket> unattendedTickets = ticketRepository.findByParkingSpotAndFinishedFalse(slotId);
+                        for (Ticket t : unattendedTickets) {
+                            ssoTicketRepository.deleteByTicket(t);
+                            guestTicketRepository.deleteByTicket(t);
+                            ticketRepository.delete(t);
+                            System.out.println("[SYSTEM] Cancelled un-arrived ticket " + t.getTicketId() + " (Plate: " + t.getLicensePlate() + ")");
+                        }
+                    }
+                });
+                return null;
             });
         }, executeTime);
     }
@@ -135,8 +183,10 @@ public class IoTManagerService {
 
     private void updateAllSigns(ParkingLotStatus status) {
         if (signs == null) return;
+        currentLotStatus = status;
         for (IntersectionSign sign : signs) {
             sign.updateStatus(status);
         }
+        System.out.println("[LOT STATUS] Lot status updated to: " + status);
     }
 }

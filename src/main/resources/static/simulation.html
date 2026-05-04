@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Parking - Enterprise Simulation</title>
+    <style>
+        :root {
+            --bg-body: #f1f5f9;
+            --bg-card: #ffffff;
+            --bg-panel: #0f172a;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --primary: #2563eb;
+            --success: #16a34a;
+            --warning: #ea580c;
+            --danger: #dc2626;
+            --border: #e2e8f0;
+            --radius: 8px;
+        }
+
+        body { font-family: 'Inter', -apple-system, sans-serif; margin: 0; background: var(--bg-body); color: var(--text-main); font-size: 14px; }
+        .layout { display: flex; min-height: 100vh; }
+        
+        /* Main Page */
+        .page { padding: 32px; flex: 1; margin-right: 360px; max-width: 1200px; margin-left: auto; }
+        h1 { font-size: 1.5rem; margin: 0 0 24px 0; font-weight: 700; color: var(--bg-panel); display: flex; align-items: center; gap: 12px; }
+        h2 { font-size: 1rem; margin: 0; font-weight: 600; }
+        h3 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin: 0 0 16px 0; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+
+        /* Grid Layouts */
+        .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; margin-bottom: 24px; }
+        .card { background: var(--bg-card); padding: 20px; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        
+        /* Parking Map & Sections */
+        .map-grid-container { display: flex; flex-direction: column; gap: 20px; }
+        .section-label { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .section-label::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+        .parking-map { display: grid; grid-template-columns: repeat(auto-fill, minmax(32px, 1fr)); gap: 4px; }
+        .slot { height: 20px; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; color: white; font-weight: bold; }
+        .AVAILABLE { background-color: var(--success); }
+        .OCCUPIED { background-color: var(--danger); }
+        .RESERVED { background-color: var(--warning); }
+        .UNKNOWN { background-color: #94a3b8; }
+
+        /* Form Elements */
+        label { display: block; font-weight: 600; font-size: 0.75rem; margin-bottom: 6px; color: var(--text-muted); }
+        input, select { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box; font-family: inherit; margin-bottom: 12px; }
+        button { width: 100%; padding: 10px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; background: var(--primary); color: white; }
+        button:hover { filter: brightness(90%); }
+        .btn-secondary { background: #f8fafc; color: var(--text-main); border: 1px solid var(--border); }
+        .btn-dark { background: var(--bg-panel); }
+        .btn-danger { background: var(--danger); }
+        .btn-success { background: var(--success); }
+
+        /* Sign Status Badges */
+        .sign-badge { padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; color: white; min-width: 70px; text-align: center; }
+        .direction-right { background: var(--success); }
+        .direction-left { background: var(--warning); }
+        .direction-straight { background: var(--primary); }
+        .direction-none { background: #64748b; }
+
+        /* Sidebar Log */
+        .log-panel { position: fixed; right: 0; top: 0; width: 360px; height: 100vh; background: var(--bg-panel); color: #94a3b8; display: flex; flex-direction: column; padding: 20px; box-sizing: border-box; }
+        #actionStatus { background: #1e293b; padding: 12px; border-radius: 6px; color: #38bdf8; font-family: monospace; font-size: 0.8rem; margin-bottom: 16px; border-left: 3px solid var(--primary); }
+        #log { flex: 1; overflow-y: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; }
+        .log-entry { padding: 6px 0; border-bottom: 1px solid #1e293b; line-height: 1.4; }
+        .log-time { color: #475569; margin-right: 8px; }
+
+        .error-zone { border: 1px solid #fecaca; background: #fffafb; }
+    </style>
+</head>
+<body>
+    <div class="layout">
+        <div class="page">
+            <h1>
+                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"></path></svg>
+                Simulation Control Center
+            </h1>
+
+            <!-- System Map Section -->
+            <div class="card" style="margin-bottom: 24px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2>Live Hardware Map</h2>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <div id="lotStatus" style="font-weight: 700; font-size: 0.8rem;">LOT STATUS: ACTIVE</div>
+                        <button onclick="fetchSlots()" class="btn-secondary" style="width: auto; padding: 4px 12px;">Sync Map</button>
+                    </div>
+                </div>
+                
+                <div class="map-grid-container">
+                    <div>
+                        <div class="section-label">SECTION A (SLOTS 1-100) — SIGN 2</div>
+                        <div id="map-a" class="parking-map"></div>
+                    </div>
+                    <div>
+                        <div class="section-label">SECTION B (SLOTS 101-200) — SIGN 1</div>
+                        <div id="map-b" class="parking-map"></div>
+                    </div>
+                    <div>
+                        <div class="section-label">SECTION C (SLOTS 201-250) — SIGN 0</div>
+                        <div id="map-c" class="parking-map"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <!-- Digital Signage -->
+                <div class="card">
+                    <h3>Signage Logic Flow</h3>
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>Sign 2 (Section A)</span>
+                            <span id="sign2" class="sign-badge direction-none">NONE</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>Sign 1 (Section B)</span>
+                            <span id="sign1" class="sign-badge direction-none">NONE</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>Sign 0 (Section C)</span>
+                            <span id="sign0" class="sign-badge direction-none">NONE</span>
+                        </div>
+                        <div style="margin-top: 8px; padding-top: 12px; border-top: 1px dashed var(--border); display: flex; justify-content: space-between;">
+                            <span style="font-weight: 600;">Last Assigned Target:</span>
+                            <strong id="assignedSpotStatus" style="color: var(--primary);">--</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Entrance Logic -->
+                <div class="card">
+                    <h3>Entrance Simulation</h3>
+                    <label>Step 1: Identity Extraction</label>
+                    <input type="text" id="entranceUserId" placeholder="Input Card ID" oninput="updateDetectedRole()" />
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+                        <button onclick="scanId()" class="btn-secondary">Scan ID</button>
+                        <button onclick="useGuest()" class="btn-secondary">Guest</button>
+                    </div>
+                    <div style="font-size: 0.75rem; margin-bottom: 16px;">Role: <span id="detectedRole" style="font-weight: 700;">OTHER (Guest)</span></div>
+                    
+                    <label>Step 2: License Plate OCR</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="entrancePlate" placeholder="Detected Plate" style="margin-bottom: 0;" />
+                        <button onclick="scanPlate()" class="btn-dark" style="width: auto;">OCR</button>
+                    </div>
+                    
+                    <button onclick="simulateEntrance()" class="btn-dark" style="margin-top: 16px;">
+                        Execute Entrance Sequence
+                    </button>
+                </div>
+            </div>
+
+            <div class="row">
+                <!-- Exit Logic -->
+                <div class="card">
+                    <h3>Exit Simulation</h3>
+                    <label>Hardware Trigger</label>
+                    <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                        <input type="number" id="slotIdDeparture" placeholder="Slot Leaving" style="margin-bottom: 0;" />
+                        <button onclick="simulateDeparture()" class="btn-secondary" style="width: auto;">Depart</button>
+                    </div>
+                    
+                    <label>Kiosk Resolution</label>
+                    <button onclick="fetchActiveTickets(true)" class="btn-secondary" style="margin-bottom: 12px; font-size: 0.75rem;">Sync & Auto-Pick Ticket</button>
+                    <select id="activeTickets" onchange="autoFillExit()"></select>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                        <input type="text" id="exitUserId" placeholder="Card ID" />
+                        <input type="text" id="exitPlate" placeholder="Plate" />
+                    </div>
+                    <button onclick="simulateExit()" class="btn-danger">Settle Ticket & Exit</button>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 24px;">
+                    <!-- Hardware Overrides -->
+                    <div class="card">
+                        <h3>Manual Overrides</h3>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: flex-end;">
+                            <div>
+                                <label>Target Slot</label>
+                                <input type="number" id="slotIdArrival" placeholder="Slot ID" style="margin-bottom: 0;" />
+                            </div>
+                            <button onclick="simulateAction('car-arrival', 'slotIdArrival')" class="btn-success">Trigger Arrival</button>
+                        </div>
+                    </div>
+
+                    <!-- Maintenance -->
+                    <div class="card error-zone">
+                        <h3>Hardware Maintenance</h3>
+                        <label>Maintenance Target</label>
+                        <input type="number" id="slotIdSensor" placeholder="Slot ID" />
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                            <button onclick="simulateAction('sensor-failure', 'slotIdSensor')" class="btn-danger">Inject Fault</button>
+                            <button onclick="simulateAction('sensor-fix', 'slotIdSensor')" class="btn-secondary">Fix Sensor</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Terminal Panel -->
+        <div class="log-panel">
+            <h3>Terminal Output</h3>
+            <div id="actionStatus">System Ready...</div>
+            <div id="log"></div>
+            <button onclick="document.getElementById('log').innerHTML=''" class="btn-secondary" style="margin-top: 16px; border-color: #334155; color: #94a3b8; background: transparent;">Clear Console</button>
+        </div>
+    </div>
+
+    <script>
+        // CORE LOGIC RETAINED FROM SOURCE[cite: 15]
+        let autoRefreshInterval;
+        const AUTO_REFRESH_INTERVAL = 2000;
+
+        function logMessage(msg) {
+            const logDiv = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `<span class="log-time">[${new Date().toLocaleTimeString()}]</span> ${msg}`;
+            logDiv.prepend(entry);
+        }
+
+        function setActionStatus(msg) {
+            document.getElementById('actionStatus').textContent = `> ${msg}`;
+        }
+
+        function setAssignedSpot(spotId) {
+            const text = spotId ? String(spotId) : '--';
+            document.getElementById('assignedSpotStatus').textContent = text;
+            if (spotId) document.getElementById('slotIdArrival').value = spotId;
+        }
+
+        async function fetchSlots(isSilent = false) {
+            try {
+                const response = await fetch('/api/simulation/slots');
+                const slots = await response.json();
+                const mapA = document.getElementById('map-a');
+                const mapB = document.getElementById('map-b');
+                const mapC = document.getElementById('map-c');
+                
+                mapA.innerHTML = ''; mapB.innerHTML = ''; mapC.innerHTML = '';
+                
+                slots.forEach(slot => {
+                    const div = document.createElement('div');
+                    div.className = `slot ${slot.status}`; 
+                    div.textContent = slot.slotId;
+                    
+                    if(slot.slotId <= 100) mapA.appendChild(div);
+                    else if(slot.slotId <= 200) mapB.appendChild(div);
+                    else mapC.appendChild(div);
+                });
+            } catch (err) { console.error(err); }
+        }
+
+        async function fetchSignDirections(isSilent = false) {
+            try {
+                if (!isSilent) setActionStatus('Refreshing Sign Hardware...');
+                const response = await fetch('/api/simulation/signs');
+                const data = await response.json();
+                
+                updateSignDisplay('sign0', data.sign_0);
+                updateSignDisplay('sign1', data.sign_1);
+                updateSignDisplay('sign2', data.sign_2);
+
+                const lotStatusEl = document.getElementById('lotStatus');
+                lotStatusEl.textContent = `LOT STATUS: ${data.lotStatus || 'ACTIVE'}`;
+                lotStatusEl.style.color = data.lotStatus === 'FULL' ? 'var(--danger)' : 'var(--success)';
+
+                if (!isSilent) logMessage(`Signs Updated: 0:${data.sign_0}, 1:${data.sign_1}, 2:${data.sign_2}`);
+            } catch (err) { console.log('Sign fetch error'); }
+        }
+
+        function updateSignDisplay(elementId, direction) {
+            const el = document.getElementById(elementId);
+            const value = String(direction || 'NONE').toUpperCase();
+            el.textContent = value;
+            el.className = 'sign-badge direction-' + value.toLowerCase();
+        }
+
+        function scheduleSignRefresh() {
+            setTimeout(() => fetchSignDirections(true), 1000);
+            setTimeout(() => fetchSignDirections(true), 4000);
+            setTimeout(() => fetchSignDirections(true), 7000);
+        }
+
+        function burstPollSigns() {
+            fetchSignDirections(true);
+            scheduleSignRefresh();
+        }
+
+        function startAutoRefresh() {
+            autoRefreshInterval = setInterval(() => {
+                fetchSlots(true);
+                fetchSignDirections(true);
+            }, AUTO_REFRESH_INTERVAL);
+        }
+
+        function updateDetectedRole() {
+            const userId = document.getElementById('entranceUserId').value;
+            const roleEl = document.getElementById('detectedRole');
+            roleEl.textContent = userId ? 'AUTO (Linked to ID)' : 'OTHER (Guest)';
+        }
+
+        function scanId() {
+            const userId = document.getElementById('entranceUserId').value;
+            if (!userId) return logMessage('No ID detected in reader');
+            setActionStatus('Card Reader Triggered');
+            logMessage(`ID Detected: ${userId}`);
+            updateDetectedRole();
+        }
+
+        function useGuest() {
+            document.getElementById('entranceUserId').value = '';
+            updateDetectedRole();
+            logMessage('Manual override: Guest Mode');
+        }
+
+        function generateLocalPlate() {
+            const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            const rand = (n) => Math.floor(Math.random() * n);
+            const digits = (n) => String(rand(Math.pow(10, n))).padStart(n, '0');
+            return `${digits(2)}${letters[rand(26)]}${letters[rand(26)]}${digits(5)}`;
+        }
+
+        async function scanPlate() {
+            const plate = generateLocalPlate();
+            document.getElementById('entrancePlate').value = plate;
+            logMessage(`OCR Result: ${plate}`);
+        }
+
+        async function simulateEntrance() {
+            const userId = document.getElementById('entranceUserId').value || 0;
+            const plate = document.getElementById('entrancePlate').value.trim();
+            setActionStatus('Processing Entrance Sequence...');
+            
+            const response = await fetch(`/api/simulation/entrance?userId=${userId}&existingPlate=${encodeURIComponent(plate)}`, { method: 'POST' });
+            const data = await response.json();
+
+            if (response.ok) {
+                logMessage(`Gate Open. Target: Slot ${data.slotId} (Plate: ${data.licensePlate})`);
+                setAssignedSpot(data.slotId);
+                fetchSlots(true);
+                burstPollSigns();
+            } else {
+                logMessage(`Access Denied: ${data.error}`);
+            }
+        }
+
+        async function simulateAction(action, inputId) {
+            const id = document.getElementById(inputId).value;
+            if (!id) return logMessage('Target Slot required');
+            const response = await fetch(`/api/simulation/${action}?slotId=${id}`, { method: 'POST' });
+            const data = await response.json();
+            logMessage(response.ok ? `Success: ${data.message}` : `Failed: ${data.error}`);
+            fetchSlots();
+        }
+
+        async function simulateDeparture() {
+            await simulateAction('car-departure', 'slotIdDeparture');
+            fetchActiveTickets(true);
+        }
+
+        async function fetchActiveTickets(autoPick = false) {
+            const response = await fetch('/api/simulation/active-tickets');
+            const data = await response.json();
+            const select = document.getElementById('activeTickets');
+            select.innerHTML = '<option value="">-- Select Vehicle --</option>';
+            data.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = JSON.stringify(t);
+                opt.textContent = `UID ${t.userId} | Plate: ${t.licensePlate}`;
+                select.appendChild(opt);
+            });
+            if (autoPick && data.length > 0) {
+                select.value = JSON.stringify(data[0]);
+                autoFillExit();
+            }
+        }
+
+        function autoFillExit() {
+            const val = document.getElementById('activeTickets').value;
+            if (!val) return;
+            const t = JSON.parse(val);
+            document.getElementById('exitUserId').value = t.userId;
+            document.getElementById('exitPlate').value = t.licensePlate;
+        }
+
+        async function simulateExit() {
+            const uid = document.getElementById('exitUserId').value;
+            const plate = document.getElementById('exitPlate').value;
+            const response = await fetch(`/api/simulation/exit?userId=${uid}&licensePlate=${encodeURIComponent(plate)}`, { method: 'POST' });
+            const data = await response.json();
+            logMessage(response.ok ? `Exit Granted: ${data.message}` : `Exit Error: ${data.error}`);
+            fetchSlots();
+            fetchActiveTickets();
+        }
+
+        window.onload = () => {
+            fetchSlots();
+            fetchActiveTickets();
+            fetchSignDirections();
+            startAutoRefresh();
+        };
+    </script>
+</body>
+</html>
