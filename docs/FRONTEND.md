@@ -73,16 +73,27 @@ Every failed request (4xx or 5xx) will return a JSON object with a single key: `
     - Ticket History
         - Omni Search: `GET operator/history/search?query=${query}` to search by user ID, ticket, or license plate.
         - List of all tickets ordered by entry time `GET operator/history`
-- Currently Developing: Connection to Hardware API
 
 ### 4. Admin Page `/admin`
 - Access Control: Token and role validation required.
 - Features:
     - Price Management
         - See current price `GET /admin/price` 
-        - Update price `PUT /admin/price?newPrice={p}`
+        - Update price based on priority (STAFF, LECTURER, STUDENT, OTHER) `PUT /admin/price?priority=${priority}&newPrice=${p}`
     - Slot Management
-        - Slot View `GET /admin/slots`
+        - Slot View  `GET /admin/slots`: **Exactly as Operator Page**
+        - Slot Priority Update `PATCH /admin/slots/bulk`: Currently support
+            - Update 1 slot, e.g. Input `1` choose STAFF or `2` choose LECTURER.
+            - Update many different slots, e.g. Input `1, 10, 123` choose STAFF.
+            - Update many consecutive slots, e.g. Input `1-100` choose STAFF means updating the priority to STAFF for 100 slots (from 1 to 100).
+    - Ticket History: **Exactly as Operator Page**
+        - Omni Search: `GET operator/history/search?query=${query}` to search by user ID, ticket, or license plate.
+        - List of all tickets ordered by entry time `GET operator/history`
+
+
+### 5. Hardware Simulation Page
+Read `HARDWARE_SIMULATION.md` for full details.
+
 
 ## Backend Implementation Status
 The backend has implemented the following core architectural features to support frontend development:

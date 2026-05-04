@@ -52,28 +52,6 @@ public class AdminController {
         
         return ResponseEntity.ok(parkingService.getAllSlots()); 
     }
-
-    @PostMapping("/slots")
-    public ResponseEntity<MessageResponse> addSlot(@RequestHeader("Authorization") String token, 
-                                     @RequestParam Role priority) {
-        securityService.verifyRole(token, AppRole.ADMIN);
-        ParkingSlot newSlot = new ParkingSlot();
-        newSlot.setPriority(priority);
-        newSlot.setStatus(SlotStatus.AVAILABLE);
-        slotDb.save(newSlot);
-        return ResponseEntity.ok(new MessageResponse("Slot successfully added"));
-    }
-
-    @DeleteMapping("/slots/{slotId}")
-    public ResponseEntity<MessageResponse> removeSlot(@RequestHeader("Authorization") String token, 
-                                        @PathVariable int slotId) {
-        securityService.verifyRole(token, AppRole.ADMIN);
-        if (!slotDb.existsById(slotId)) {
-            return ResponseEntity.notFound().build();
-        }
-        slotDb.deleteById(slotId);
-        return ResponseEntity.ok(new MessageResponse("Slot successfully removed"));
-    }
     
     @PatchMapping("/slots/bulk")
     public ResponseEntity<MessageResponse> updateBulkSlots(@RequestHeader("Authorization") String token, 
