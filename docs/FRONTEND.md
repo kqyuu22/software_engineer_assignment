@@ -10,6 +10,11 @@ This document outlines the authentication flow, edge case handling, and role-bas
 -	The server receives, and then generates a token based on username, user id, roles,… including session expiration date too. The server sends the token to the client
 -	The client receives the token, and for every subsequent page (e.g. after the client logins, the client is redirected to the main page), the client must send the token in header Authorization to the server. The server receive this token, decoding the token, and verify the data in the token
 
+#### Frontend Handling for Session Expiration
+Because the backend rigidly enforces expiration, the frontend only *strictly needs* to handle the reactive case, but proactive handling improves UX:
+- **Reactive validation (Required)**: If the token expires, the backend will inevitably reject the request with a `401 Unauthorized` status. The global Axios/Fetch interceptor must catch this 401 error, clear the stored session data, alert the user ("Session expired. Please log in again."), and redirect to the login page.
+- **Proactive validation (Optional UX)**: The frontend *can* parse the token's `Expr` date (ISO-8601 format) to silently clear the session or show a warning popup right before it expires. This prevents the user from trying to submit a form or click a button only to be hit with a 401 error.
+
 ### Edge case and Error Test
 -	Disable one controller API => Frontend has problem fetching from backend
 -	Disable connection to the database

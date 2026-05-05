@@ -33,7 +33,8 @@ public class AuthController {
             AppUser user = userOpt.get();
             
             // Generate a simulated JWT token (In production, use io.jsonwebtoken library)
-            String fakeJwtToken = "Bearer " + user.getUserId(); 
+            String expiryIso = java.time.OffsetDateTime.now().plusMinutes(2).toString();
+            String fakeJwtToken = "Bearer " + user.getUserId() + "; Expr " + expiryIso; // Token valid for 2 minutes for testing
 
             System.out.println("[AuthController] User " + user.getUsername() + " logged in with role: " + user.getRole());
             

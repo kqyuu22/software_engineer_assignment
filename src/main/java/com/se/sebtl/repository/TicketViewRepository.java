@@ -9,4 +9,7 @@ public interface TicketViewRepository extends JpaRepository<TicketView, TicketVi
     List<TicketView> findByTicketIdOrLicensePlateContainingIgnoreCaseOrHolderIdentifierContainingIgnoreCaseOrderByEntryTimeDesc(Integer ticketId, String licensePlate, String holderIdentifier);
     List<TicketView> findByLicensePlateContainingIgnoreCaseOrHolderIdentifierContainingIgnoreCaseOrderByEntryTimeDesc(String licensePlate, String holderIdentifier);
     List<TicketView> findByLicensePlateContainingIgnoreCaseOrderByEntryTimeDesc(String licensePlate);
+
+    boolean existsByLicensePlateIgnoreCaseAndFinishedFalse(String licensePlate);
+    boolean existsByHolderIdentifierAndFinishedFalse(String holderIdentifier);
 }

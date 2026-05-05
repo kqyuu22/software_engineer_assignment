@@ -10,7 +10,6 @@
 &rarr; Currently Support: /member, /operator, /admin, /simulation
 
 ## Still Developing... 
-- Forgot to add session expiration in the token
 - Simulation UI and Simulation Loigc:
     - There are classes for initial configuration, but no parameters to input config and thus, no UI
 - Automated test cases (the one using playwright JS) are still very basic

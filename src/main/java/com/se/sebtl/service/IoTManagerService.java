@@ -4,6 +4,7 @@ import com.se.sebtl.repository.ParkingSlotRepository;
 import com.se.sebtl.model.*;
 import com.se.sebtl.service.iot.IntersectionSign;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,7 +32,11 @@ public class IoTManagerService {
 
     private List<IntersectionSign> signs;
     private java.util.Map<Integer, Direction> currentSignDirections = new java.util.concurrent.ConcurrentHashMap<>();
+    private java.util.Map<Integer, Boolean> signFailures = new java.util.concurrent.ConcurrentHashMap<>();
     private ParkingLotStatus currentLotStatus = ParkingLotStatus.AVAILABLE;
+    private SystemMode mode = SystemMode.NORMAL;
+    private boolean sensorFailure = false;
+    private boolean signFailure = false;
 
     public IoTManagerService(ParkingSlotRepository slotRepository, 
                              TaskScheduler taskScheduler,
@@ -51,6 +56,7 @@ public class IoTManagerService {
         this.signs = signs;
         for (int i = 0; i < signs.size(); i++) {
             currentSignDirections.put(i, Direction.NONE);
+            signFailures.put(i, false);
         }
     }
 
@@ -59,12 +65,17 @@ public class IoTManagerService {
         for (int i = 0; i < signs.size(); i++) {
             result.put("sign_" + i, currentSignDirections.getOrDefault(i, Direction.NONE));
         }
-        result.put("lotStatus", currentLotStatus);
+        if (mode != SystemMode.MONITOR) {
+            result.put("lotStatus", currentLotStatus);
+        }
         return result;
     }
 
     @Transactional
     public int assignSpot(Role role) {
+        if (mode == SystemMode.MONITOR) {
+            return 0;
+        }
         // CHANGED: Using the locked query so nobody else can steal the spot while we process it
         List<ParkingSlot> available = slotRepository.findByStatusWithLock(SlotStatus.AVAILABLE);
         
@@ -165,20 +176,105 @@ public class IoTManagerService {
             slotRepository.save(slot);
         });
         updateParkingLotStatus();
+        checkSensorHealth();
     }
 
     private void updateParkingLotStatus() {
-        List<ParkingSlot> all = slotRepository.findAll();
-        long occupied = all.stream().filter(s -> s.getStatus() == SlotStatus.OCCUPIED).count();
-        long known = all.stream().filter(s -> s.getStatus() != SlotStatus.UNKNOWN).count();
-        
-        if (known == 0) return;
-        
-        double occupancy = (double) occupied / known;
+        if (mode == SystemMode.MONITOR) {
+            currentLotStatus = null;
+            return;
+        }
 
-        if (occupancy >= 1.0) updateAllSigns(ParkingLotStatus.FULL);
-        else if (occupancy >= 0.9) updateAllSigns(ParkingLotStatus.NEARLY_FULL);
-        else updateAllSigns(ParkingLotStatus.AVAILABLE);
+        List<ParkingSlot> all = slotRepository.findAll();
+
+        long occupied = all.stream()
+                .filter(s -> s.getStatus() == SlotStatus.OCCUPIED)
+                .count();
+
+        long known = all.stream()
+                .filter(s -> s.getStatus() != SlotStatus.UNKNOWN)
+                .count();
+
+        double occupancy = (known == 0) ? 0.0 : (double) occupied / known;
+
+        ParkingLotStatus newStatus = ParkingLotStatus.AVAILABLE;
+        if (occupancy >= 1.0) {
+            newStatus = ParkingLotStatus.FULL;   
+        } else if (occupancy >= 0.9) {
+            newStatus = ParkingLotStatus.NEARLY_FULL;
+        } else {
+            newStatus = ParkingLotStatus.AVAILABLE;
+        }
+
+        if (newStatus != currentLotStatus) {
+            currentLotStatus = newStatus;
+            // signService.updateParkingStatus(currentLotStatus);
+        }
+    }
+
+    private void checkSensorHealth() {
+        List<ParkingSlot> all = slotRepository.findAll();
+
+        long unknown = all.stream()
+                .filter(s -> s.getStatus() == SlotStatus.UNKNOWN)
+                .count();
+
+        double failureRate = (double) unknown / all.size();
+
+        sensorFailure = failureRate >= 0.25;
+
+        if (sensorFailure) {
+            updateModeIfNeeded(
+                SystemMode.MONITOR,
+                "Sensor failure exceeded 25%, degraded to MONITOR mode"
+            );
+        } else if (!signFailure) {
+            updateModeIfNeeded(
+                SystemMode.NORMAL,
+                "System recovered to NORMAL mode (sensor OK)"
+            );
+        }
+    }
+
+    @Scheduled(fixedRate = 5000)
+    public void monitorSensorHealth() {
+        checkSensorHealth();
+    }
+
+    @Scheduled(fixedRate = 5000)
+    public void monitorSignHealth() {
+        if (signFailure) {
+            updateModeIfNeeded(
+                SystemMode.MONITOR,
+                "Sign system failure detected, switching to MONITOR mode"
+            );
+        } else if (!sensorFailure) {
+            updateModeIfNeeded(
+                SystemMode.NORMAL,
+                "System recovered to NORMAL mode (sign OK)"
+            );
+        }
+    }
+
+    private void updateModeIfNeeded(SystemMode newMode, String message) {
+        if (mode != newMode) {
+            mode = newMode;
+
+            if (newMode == SystemMode.MONITOR) {
+                currentLotStatus = null;
+                resetSignDirections();
+            }
+            System.out.println("[SYSTEM MODE] " + message);
+        }
+    }
+
+    private void resetSignDirections() {
+        if (signs == null || signs.isEmpty()) return;
+        for (int i = 0; i < signs.size(); i++) {
+            IntersectionSign sign = signs.get(i);
+            sign.updateDirection(Direction.NONE);
+            currentSignDirections.put(i, Direction.NONE);
+        }
     }
 
     private void updateAllSigns(ParkingLotStatus status) {
@@ -189,4 +285,33 @@ public class IoTManagerService {
         }
         System.out.println("[LOT STATUS] Lot status updated to: " + status);
     }
+
+    public ParkingLotStatus getLotStatus() {
+        return currentLotStatus;
+    }
+
+    public SystemMode getMode() {
+        return mode;
+    }
+
+    public void setMode(SystemMode newMode) {
+        updateModeIfNeeded(newMode, "System mode updated to " + newMode);
+    }
+
+    public void setSignFailure(boolean hasFailure) {
+        signFailure = hasFailure;
+    }
+
+    public void setSignFailure(int signIndex, boolean failed) {
+        if (signIndex < 0 || signs == null || signIndex >= signs.size()) {
+            return;
+        }
+        signFailures.put(signIndex, failed);
+        signFailure = signFailures.values().stream().anyMatch(Boolean::booleanValue);
+    }
+
+    public java.util.Map<Integer, Boolean> getSignFailures() {
+        return new java.util.HashMap<>(signFailures);
+    }
+
 }

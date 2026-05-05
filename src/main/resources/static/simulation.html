@@ -76,6 +76,8 @@
             <h1>
                 <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"></path></svg>
                 Simulation Control Center
+                <span id="systemModeBadge" style="margin-left: 12px; padding: 6px 14px; border-radius: 999px; font-size: 0.85rem; font-weight: 700; background: var(--success); color: white;">NORMAL MODE</span>
+                <button onclick="toggleSystemMode()" class="btn-secondary" style="width: auto; padding: 4px 12px;">Toggle Mode</button>
             </h1>
 
             <!-- System Map Section -->
@@ -101,6 +103,73 @@
                         <div class="section-label">SECTION C (SLOTS 201-250) — SIGN 0</div>
                         <div id="map-c" class="parking-map"></div>
                     </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>Hardware Device Status</h3>
+                <!-- Camera Status -->
+                <label>Camera Status</label>
+                <select id="cameraStatus">
+                    <option value="correct" selected>Correct</option>
+                    <option value="wrong">Wrong</option>
+                    <option value="fail">Fail</option>
+                    <option value="random">Random</option>
+                </select>
+                <!-- Card Reader Status -->
+                <label>Card Reader Status</label>
+                <select id="cardReaderStatus">
+                    <option value="success" selected>Success</option>
+                    <option value="fail">Fail</option>
+                </select>
+                <select id="isGuest" onchange="updateDetectedRole()">
+                    <option value="false" selected>University Member</option>
+                    <option value="true">Guest</option>
+                </select>
+                <!-- Gate Status -->
+                <label>Gate Status</label>
+                <div id="gateStatus" style="color: var(--danger)">
+                    CLOSED
+                </div>
+                <!-- <button onclick="fetchGateStatus()" class="btn-secondary" style="width: auto; padding: 4px 12px; margin-left: 12px;">Refresh</button> -->
+                <!-- Sign Status -->
+                <label>Sign Status</label>
+                <div style="display: grid; gap: 8px;">
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <span>Sign 2 (Section A)</span>
+                        <select id="signFailureStatus2" style="margin-bottom: 0;"> 
+                            <option value="normal">normal</option>
+                            <option value="fail">fail</option>
+                        </select>
+                        <button onclick="updateSignFailure(2)" class="btn-secondary" style="width: auto; padding: 4px 12px;">Apply</button>
+                        <span id="signFailureBadge2" class="sign-badge direction-none">normal</span>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <span>Sign 1 (Section B)</span>
+                        <select id="signFailureStatus1" style="margin-bottom: 0;"> 
+                            <option value="normal">normal</option>
+                            <option value="fail">fail</option>
+                        </select>
+                        <button onclick="updateSignFailure(1)" class="btn-secondary" style="width: auto; padding: 4px 12px;">Apply</button>
+                        <span id="signFailureBadge1" class="sign-badge direction-none">normal</span>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <span>Sign 0 (Section C)</span>
+                        <select id="signFailureStatus0" style="margin-bottom: 0;"> 
+                            <option value="normal">normal</option>
+                            <option value="fail">fail</option>
+                        </select>
+                        <button onclick="updateSignFailure(0)" class="btn-secondary" style="width: auto; padding: 4px 12px;">Apply</button>
+                        <span id="signFailureBadge0" class="sign-badge direction-none">normal</span>
+                    </div>
+                </div>
+
+                <!-- Sensor Status -->
+                <label>Sensor Status (Bulk Update)</label>
+                <input type="text" id="bulkSensorIds" placeholder="Slots (e.g. 1, 2-5, 10)" style="margin-bottom: 8px;" />
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <button onclick="simulateBulkSensor('sensor-failure')" class="btn-danger">Bulk Fault</button>
+                    <button onclick="simulateBulkSensor('sensor-fix')" class="btn-secondary">Bulk Fix</button>
                 </div>
             </div>
 
@@ -132,17 +201,16 @@
                 <div class="card">
                     <h3>Entrance Simulation</h3>
                     <label>Step 1: Identity Extraction</label>
-                    <input type="text" id="entranceUserId" placeholder="Input Card ID" oninput="updateDetectedRole()" />
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
-                        <button onclick="scanId()" class="btn-secondary">Scan ID</button>
-                        <button onclick="useGuest()" class="btn-secondary">Guest</button>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="entranceUserId" placeholder="Input Card ID" oninput="updateDetectedRole()" />
+                        <button onclick="scanCard()" class="btn-dark" style="width: auto;">Scan ID</button>
                     </div>
                     <div style="font-size: 0.75rem; margin-bottom: 16px;">Role: <span id="detectedRole" style="font-weight: 700;">OTHER (Guest)</span></div>
                     
                     <label>Step 2: License Plate OCR</label>
                     <div style="display: flex; gap: 8px;">
                         <input type="text" id="entrancePlate" placeholder="Detected Plate" style="margin-bottom: 0;" />
-                        <button onclick="scanPlate()" class="btn-dark" style="width: auto;">OCR</button>
+                        <button onclick="scanPlate()" class="btn-dark" style="width: auto;">Scan Plate</button>
                     </div>
                     
                     <button onclick="simulateEntrance()" class="btn-dark" style="margin-top: 16px;">
@@ -185,7 +253,7 @@
                     </div>
 
                     <!-- Maintenance -->
-                    <div class="card error-zone">
+                    <!-- <div class="card error-zone">
                         <h3>Hardware Maintenance</h3>
                         <label>Maintenance Target</label>
                         <input type="number" id="slotIdSensor" placeholder="Slot ID" />
@@ -193,7 +261,7 @@
                             <button onclick="simulateAction('sensor-failure', 'slotIdSensor')" class="btn-danger">Inject Fault</button>
                             <button onclick="simulateAction('sensor-fix', 'slotIdSensor')" class="btn-secondary">Fix Sensor</button>
                         </div>
-                    </div>
+                    </div> -->
                 </div>
             </div>
         </div>
@@ -225,9 +293,92 @@
         }
 
         function setAssignedSpot(spotId) {
-            const text = spotId ? String(spotId) : '--';
+            const text = (spotId === null || spotId === undefined) ? '--' : String(spotId);
             document.getElementById('assignedSpotStatus').textContent = text;
             if (spotId) document.getElementById('slotIdArrival').value = spotId;
+        }
+
+        async function fetchParkingLotStatus() {
+            try {
+                const res = await fetch('/api/simulation/lot-status');
+                const data = await res.json();
+                const lotStatusEl = document.getElementById('lotStatus');
+                lotStatusEl.textContent = `LOT STATUS: ${data.lotStatus || 'NULL'}`;
+                switch(data.lotStatus) {
+                    case 'NEARLY_FULL': lotStatusEl.style.color = 'var(--warning)'; break;
+                    case 'FULL': lotStatusEl.style.color = 'var(--danger)'; break;
+                    case 'AVAILABLE': lotStatusEl.style.color = 'var(--success)'; break;
+                    default: lotStatusEl.style.color = 'var(--text-muted)';
+                }
+            } catch (e) { console.error("Failed to fetch parking lot status"); }
+        }
+
+        async function fetchGateStatus() {
+            try {
+                const res = await fetch('/api/simulation/gate-status');
+                const data = await res.json();
+                const gateStatusEl = document.getElementById('gateStatus');
+                gateStatusEl.textContent = data.isOpen ? 'OPEN' : 'CLOSED';
+                gateStatusEl.style.color = data.isOpen ? 'var(--success)' : 'var(--danger)';
+            } catch (e) { console.error("Failed to fetch gate status"); }
+        }
+
+        let currentSystemMode = 'NORMAL';
+
+        async function fetchSystemMode() {
+            try {
+                const res = await fetch('/api/simulation/system-mode');
+                const data = await res.json();
+                if (data.mode) currentSystemMode = data.mode;
+                const badge = document.getElementById('systemModeBadge');
+                if (badge && data.mode) {
+                    const isMonitor = data.mode === 'MONITOR';
+                    badge.textContent = `${data.mode} MODE`;
+                    badge.style.background = isMonitor ? 'var(--danger)' : 'var(--success)';
+                }
+            } catch (e) { console.error("Failed to fetch system mode"); }
+        }
+
+        async function updateSystemMode(mode) {
+            try {
+                await fetch(`/api/simulation/system-mode?mode=${mode}`, { method: 'POST' });
+                currentSystemMode = mode;
+                fetchParkingLotStatus();
+                fetchSystemMode();
+            } catch (e) { console.error("Failed to update system mode"); }
+        }
+
+        function toggleSystemMode() {
+            const nextMode = currentSystemMode === 'MONITOR' ? 'NORMAL' : 'MONITOR';
+            updateSystemMode(nextMode);
+        }
+
+        async function fetchSignFailures() {
+            try {
+                const res = await fetch('/api/simulation/sign-failure');
+                const data = await res.json();
+                const failures = data.failures || {};
+                [0, 1, 2].forEach((i) => {
+                    const status = failures[i] ? 'fail' : 'normal';
+                    const select = document.getElementById(`signFailureStatus${i}`);
+                    const badge = document.getElementById(`signFailureBadge${i}`);
+                    if (select && document.activeElement !== select) select.value = status;
+                    if (badge) {
+                        badge.textContent = status;
+                        badge.style.backgroundColor = failures[i] ? 'var(--danger)' : 'var(--success)';
+                    }
+                });
+            } catch (e) { console.error("Failed to fetch sign failure status"); }
+        }
+
+        async function updateSignFailure(signIndex) {
+            const status = document.getElementById(`signFailureStatus${signIndex}`).value;
+            const failed = status === 'fail';
+            try {
+                await fetch(`/api/simulation/sign-failure?signIndex=${signIndex}&failed=${failed}`, { method: 'POST' });
+                fetchSystemMode();
+                fetchSignFailures();
+            } catch (e) { console.error("Failed to update sign failure status"); }
         }
 
         async function fetchSlots(isSilent = false) {
@@ -262,9 +413,14 @@
                 updateSignDisplay('sign1', data.sign_1);
                 updateSignDisplay('sign2', data.sign_2);
 
-                const lotStatusEl = document.getElementById('lotStatus');
-                lotStatusEl.textContent = `LOT STATUS: ${data.lotStatus || 'ACTIVE'}`;
-                lotStatusEl.style.color = data.lotStatus === 'FULL' ? 'var(--danger)' : 'var(--success)';
+                // const lotStatusEl = document.getElementById('lotStatus');
+                // lotStatusEl.textContent = `LOT STATUS: ${data.lotStatus || 'NULL'}`;
+                // switch(data.lotStatus) {
+                //     case 'NEARLY_FULL': lotStatusEl.style.color = 'var(--warning)'; break;
+                //     case 'FULL': lotStatusEl.style.color = 'var(--danger)'; break;
+                //     case 'AVAILABLE': lotStatusEl.style.color = 'var(--success)'; break;
+                //     default: lotStatusEl.style.color = 'var(--text-muted)';
+                // }
 
                 if (!isSilent) logMessage(`Signs Updated: 0:${data.sign_0}, 1:${data.sign_1}, 2:${data.sign_2}`);
             } catch (err) { console.log('Sign fetch error'); }
@@ -292,55 +448,110 @@
             autoRefreshInterval = setInterval(() => {
                 fetchSlots(true);
                 fetchSignDirections(true);
+                fetchGateStatus(); // Continuously update Gate Status
+                fetchParkingLotStatus();
+                fetchSystemMode();
+                fetchSignFailures();
             }, AUTO_REFRESH_INTERVAL);
         }
 
         function updateDetectedRole() {
-            const userId = document.getElementById('entranceUserId').value;
+            const isGuest = document.getElementById('isGuest').value === 'true';
             const roleEl = document.getElementById('detectedRole');
-            roleEl.textContent = userId ? 'AUTO (Linked to ID)' : 'OTHER (Guest)';
+            roleEl.textContent = isGuest ? 'OTHER (Guest)' : 'AUTO (Linked to ID)';
         }
 
-        function scanId() {
+        function scanCard() {
             const userId = document.getElementById('entranceUserId').value;
-            if (!userId) return logMessage('No ID detected in reader');
+            const cardReaderStatus = document.getElementById('cardReaderStatus').value;
+            const isGuest = document.getElementById('isGuest').value === 'true';
+            
+            if (!userId && !isGuest) return logMessage('No ID detected in reader');
+
+            const response = fetch(`/api/simulation/scan-card?param=${userId}&read=${cardReaderStatus === 'success'}&isGuest=${isGuest}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.userId) {
+                        document.getElementById('entranceUserId').value = data.userId;
+                        setActionStatus('Card Reader Triggered');
+                        logMessage(`ID Detected: ${data.userId}`);
+                        updateDetectedRole();
+                    } 
+                    else if (data.message) { // Guest
+                        logMessage(`Card Reader: ${data.message}`);
+                    }
+                    else {
+                        logMessage('Card reader failed to read card.');
+                    }
+                })
+                .catch(err => logMessage('Card reader error: Service unreachable'));
+                
             setActionStatus('Card Reader Triggered');
             logMessage(`ID Detected: ${userId}`);
             updateDetectedRole();
         }
 
-        function useGuest() {
-            document.getElementById('entranceUserId').value = '';
-            updateDetectedRole();
-            logMessage('Manual override: Guest Mode');
-        }
-
-        function generateLocalPlate() {
-            const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-            const rand = (n) => Math.floor(Math.random() * n);
-            const digits = (n) => String(rand(Math.pow(10, n))).padStart(n, '0');
-            return `${digits(2)}${letters[rand(26)]}${letters[rand(26)]}${digits(5)}`;
-        }
-
         async function scanPlate() {
-            const plate = generateLocalPlate();
-            document.getElementById('entrancePlate').value = plate;
-            logMessage(`OCR Result: ${plate}`);
+            const mode = document.getElementById('cameraStatus').value;
+            const expectedPlate = document.getElementById('entrancePlate').value || '';
+            setActionStatus(`Scanning Plate (Mode: ${mode})...`);
+            
+            try {
+                const response = await fetch(`/api/simulation/scan-plate?mode=${mode}&expectedPlate=${encodeURIComponent(expectedPlate)}`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    if (mode === 'wrong') {
+                        logMessage(`OCR Warning: Incorrect plate detected [${data.licensePlate}] while expecting [${expectedPlate}]`);
+                    } else if (mode === 'fail') {
+                        logMessage(`OCR Failure: No plate detected`);
+                    }
+                    else {
+                        logMessage(`OCR Success: Plate scanned as [${data.licensePlate}]`);
+                    }
+                    document.getElementById('entrancePlate').value = data.licensePlate;
+                    logMessage(`OCR Success: Plate scanned as [${data.licensePlate}]`);
+                } else {
+                    document.getElementById('entrancePlate').value = '';
+                    logMessage(`OCR Failed: ${data.error}`);
+                }
+            } catch (err) {
+                logMessage(`OCR Error: Service unreachable`);
+            }
         }
 
         async function simulateEntrance() {
-            const userId = document.getElementById('entranceUserId').value || 0;
-            const plate = document.getElementById('entrancePlate').value.trim();
+            const userId = document.getElementById('entranceUserId').value || null;
+            const plate = document.getElementById('entrancePlate').value.trim() || null;
+            const isGuest = document.getElementById('isGuest').value === 'true';
+            // If isGuest is true, we ignore userId input
+
+            if (!userId && !isGuest) return logMessage('Card ID is required for entrance simulation!');
+            if (!plate) return logMessage('License plate is required for entrance simulation!');
+            // if (userId && isNaN(userId)) return logMessage('Card ID must be numeric if provided');
+
             setActionStatus('Processing Entrance Sequence...');
             
-            const response = await fetch(`/api/simulation/entrance?userId=${userId}&existingPlate=${encodeURIComponent(plate)}`, { method: 'POST' });
+            // const response = await fetch(`/api/simulation/entrance?userId=${userId}&existingPlate=${encodeURIComponent(plate)}`, { method: 'POST' });
+            const response = await fetch(`/api/simulation/entrance`, { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
             const data = await response.json();
 
             if (response.ok) {
                 logMessage(`Gate Open. Target: Slot ${data.slotId} (Plate: ${data.licensePlate})`);
-                setAssignedSpot(data.slotId);
+                // fetchGateStatus();
+                if (currentSystemMode === 'MONITOR') {
+                    setAssignedSpot(0);
+                    updateSignDisplay('sign0', 'NONE');
+                    updateSignDisplay('sign1', 'NONE');
+                    updateSignDisplay('sign2', 'NONE');
+                } else {
+                    setAssignedSpot(data.slotId);
+                    burstPollSigns();
+                }
                 fetchSlots(true);
-                burstPollSigns();
             } else {
                 logMessage(`Access Denied: ${data.error}`);
             }
@@ -353,6 +564,47 @@
             const data = await response.json();
             logMessage(response.ok ? `Success: ${data.message}` : `Failed: ${data.error}`);
             fetchSlots();
+        }
+
+        async function simulateBulkSensor(action) {
+            const input = document.getElementById('bulkSensorIds').value;
+            if (!input) return logMessage('Provide slot IDs (e.g. 1, 2-5, 10)');
+            
+            const ids = [];
+            const parts = input.split(',');
+            for (let p of parts) {
+                p = p.trim();
+                if (p.includes('-')) {
+                    const [start, end] = p.split('-').map(Number);
+                    if (!isNaN(start) && !isNaN(end) && start <= end) {
+                        for (let i = start; i <= end; i++) ids.push(i);
+                    }
+                } else {
+                    const n = Number(p);
+                    if (!isNaN(n) && n > 0) ids.push(n);
+                }
+            }
+
+            if (ids.length === 0) return logMessage('Invalid slot IDs format');
+            
+            setActionStatus(`Executing Bulk ${action}...`);
+            
+            try {
+                const response = await fetch(`/api/simulation/${action}-bulk`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(ids)
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    logMessage(`Bulk ${action.replace('-', ' ')} success: ${ids.length} slots updated.`);
+                } else {
+                    logMessage(`Bulk update failed: ${data.error || 'Unknown error'}`);
+                }
+                fetchSlots();
+            } catch (err) {
+                logMessage('Bulk sensor update error: Service unreachable');
+            }
         }
 
         async function simulateDeparture() {
@@ -399,6 +651,9 @@
             fetchSlots();
             fetchActiveTickets();
             fetchSignDirections();
+            fetchParkingLotStatus();
+            fetchSystemMode();
+            fetchSignFailures();
             startAutoRefresh();
         };
     </script>

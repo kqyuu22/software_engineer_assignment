@@ -15,40 +15,90 @@ The Java application (`src/main/java/com/se/sebtl/service/iot/`) models the foll
 
 > **Chaos Logic**: During the `car-arrival` simulation, there is a built-in **10% chance** a driver acts "rogue" and ignores their assigned spot, parking in a random available spot within the same section instead. The system naturally handles this via hardware sensor interrupts and auto-updates.
 
----
-
-## REST Endpoints (`/api/simulation`)
-The Simulation Controller (`SimulationApiController.java`) allows the frontend or testers to trigger these hardware events manually via HTTP.
-
-### 1. Hardware State Verification
-*   `GET /api/simulation/slots`: Gets the real-time status of all parking slots.
-*   `GET /api/simulation/signs`: Gets the current digital directional arrows on all Intersection Signs to verify correct routing paths.
-
-### 2. Entrance Process (Kiosk Simulator)
-*   `GET /api/simulation/scan-plate`: Mocks capturing a random license plate using the simulated `Camera`. Returns `{ "licensePlate": "XX-XXXX" }`.
-*   `POST /api/simulation/assign-spot?role={role}`: Mocks a kiosk assigning a spot based on the driver's role. Changes the spot state to `RESERVED` and starts a 2-minute timer. If full, triggers a system alert.
-*   `POST /api/simulation/entrance?userId={userId}&existingPlate={plate}`: Completes the entrance process, tying the license plate and user ID, saving the ticket, and opening the `Gate`.
-
-### 3. Exit Process
-*   `GET /api/simulation/active-tickets`: Quickly retrieves active (unfinished) tickets so testers can simulate the correct car attempting an exit.
-
-### 4. Sensor Hardware Triggers (Spot Level)
-These mimic the individual spot sensors detecting a car's physical presence or absence.
-*   `POST /api/simulation/car-arrival?slotId={id}`: Simulates a car physically driving into a spot. Triggers the sensor to switch to `OCCUPIED`. (This is where Chaos Logic triggers).
-*   `POST /api/simulation/car-departure?slotId={id}`: Simulates a car leaving a spot. Triggers the sensor to switch back to `AVAILABLE`.
-
-### 5. Hardware Maintenance Simulation
-*   `POST /api/simulation/sensor-failure?slotId={id}`: Injects a mock hardware fault, marking the spot state as `UNKNOWN` and reporting a **SYSTEM_FAILURE** to the Alert dashboard.
-*   `POST /api/simulation/sensor-fix?slotId={id}`: Simulates an engineer fixing the sensor. It restores the slot to its previous known state.
+> However, in Simulation Page, we can trigger the chaos logic by choosing `car-arrival` in a slot different from the assigned one
 
 ---
+## API Endpoint Simulation
 
-## Frontend Control Panel (`simulation.html`)
+### System Mode
+Default is `NORMAL`. The system mode will change into `MONITOR` if:
+- One of the sign has failure
+- More than 25% of the sensors fails, meaning the status of 25% of the slots are `UNKNOWN`
 
-The frontend component (`src/main/resources/static/simulation.html`) provides a dashboard map and control board for testing system rules without needing a physical setup.
+When in `MONITOR` mode:
+- Spot Assigned: Always 0
+- Sign Directions: All `NONE`
+- Parking Lot Status: `NULL`
 
-**Key Testing Areas:**
-- **Live Hardware Map:** Visualizes spots across Sections A (1-100), B (101-200), and C (201-250+), color-coded by state (`AVAILABLE` = Green, `OCCUPIED` = Red, `RESERVED` = Orange, `UNKNOWN` = Grey).
-- **Signage Logic Flow:** Displays real-time changes to routing signs when you generate a ticket for a user.
-- **Entrance & Exit Simulation:** Step-by-step testers for the entire flow from ID scan to Checkout, ensuring tickets and sensors link correctly.
-- **Overrides & Maintenance:** Allows forcing spots into failure/repair states, or forcing arbitrary arrivals to test operator dashboards and alert generation.
+### Hardware Status Manipulation
+Operators and simulation tools can manually inject failures to test system resilience and automated mode switching.
+
+**1. Sensor Failure Injection**
+- Single Sensor: `POST /api/simulation/sensor-failure?slotId=${id}`
+- Bulk Sensors: `POST /api/simulation/sensor-failure-bulk` (JSON body array of slot IDs)
+- Fix Sensor: `POST /api/simulation/sensor-fix?slotId=${id}` or `sensor-fix-bulk`
+*Triggers `MONITOR` mode if >25% of slots become `UNKNOWN`.*
+
+**2. Sign Failure Injection**
+- Retrieve signs: `GET /api/simulation/sign-failure`
+- Toggle failure: `POST /api/simulation/sign-failure?signIndex=${index}&failed=${boolean}`
+*Directly triggers `MONITOR` mode if any sign is marked as failed.*
+
+### At the entrance
+**1. Scan Card by Card Reader**
+- Select Option in **Card Reader Status**
+    - **success** or **fail**
+    - **University Member** or **Guest**.
+
+Note: When in **Guest** mode, ignore the card input.
+
+- `GET /api/simulation/scan-card?param=${userId}&read=${cardReaderStatus === 'success'}`
+    
+
+**2. Scan License Plate by Camera**
+- Select Option in **Camera Status**
+    - **correct**: Return an exact license plate as the user input
+    - **wrong**: Return a different license plate (randomly generated) from the user input. Note that this is still considered a *success scan*, the error is usually detected on screen showing the scanned, wrong logic check when query the database.
+    - **fail**: Return null
+    - **random**: Return a randomly generated license plate
+- `GET /api/simulation/scan-plate?mode=${mode}&expectedPlate=${encodeURIComponent(expectedPlate)}`
+
+**3. Entrance Simulation**
+- Only continue if Camera and CardReader successfully. In other words, if we haven't had successful scans for both card ID and license plate, then we just send error in the frontend view. (I don't think this is an alert)
+
+- Here is where we check for:
+    - Non-existing SSO user ID &rarr; Alert `SECURITY_BREACH`
+    - Duplicate SSO user ID &rarr; Alert `SECURITY_BREACH`. Note that Guest ID is generated automatically, so there won't be duplicate or non-existing Guest ID when checking at the entrance.
+    - Duplicate Plate &rarr; Alert `SECURITY_BREACH`
+
+- If no alerts or errors occur, we then add a new `ticket` into the database.
+
+- Set the Gate status into *Open*.
+
+
+### After the entrance
+**1. Car Arrival:** Simulating the process when the customer arriving from the entrance to their parking slot.
+
+- The assigned slot will be set to `RESERVED` and wait for a set of time. If timeout occurs, then the assigned slot will be set back to `AVAILABLE` and delete the `ticket` we've just created at the entrance.
+
+- Trigger car arrival by route `POST /api/simulation/car-arrival?slotId=${id}`, then the slot status will be set to `OCCUPIED`
+
+**2. Car Departure (Hardware Trigger):** Simulating the car vacating the physical parking slot.
+- Triggered by `POST /api/simulation/car-departure?slotId=${id}`.
+- The hardware sensor directly tells the IoT Manager the space is now empty, updating the slot status to `AVAILABLE`.
+
+**3. Car Exit (Kiosk Resolution):** Simulating the car arriving at the exit gate, scanning its details, and leaving the premises.
+- First, the kiosk reads active sessions: `GET /api/simulation/active-tickets`
+- Then, it triggers the exit sequence: `POST /api/simulation/exit?userId=${uid}&licensePlate=${encodeURIComponent(plate)}`
+- This validates the user, updates the active ticket (recording the `exit_time` which triggers the DB billing functions), marks the ticket as finished, and safely opens the exit Gate.
+
+## Note About Simulation Page
+- Auto refresh every `AUTO_REFRESH_INTERVAL` and each refresh, fetch:
+    - Slots
+    - Sign Directions
+    - Gate Status (OPEN/CLOSE)
+    - Parking Lot Status (NEARLY_FULL/FULL/AVAILABLE)
+    - System Mode (NORMAL/MONITOR)
+    - Sign Failures
+- **Manual Overrides**: Operators can manually inject sensor faults, fix sensors, or update a bulk of sensors simultaneously (e.g. `POST /api/simulation/sensor-failure-bulk`) to evaluate system resilience.
+- **Chaos Testing**: Dropdowns allow forcing specific device behaviors during entry, including camera OCR misreads (`wrong`, `fail`) and card reader failures to thoroughly test edge cases in entrance logic. 

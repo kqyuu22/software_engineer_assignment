@@ -7,6 +7,8 @@ import java.util.Optional;
 import com.se.sebtl.model.SsoTicket;
 
 import java.util.List;
+import com.se.sebtl.model.Ticket;
+
 
 public interface SsoTicketRepository extends JpaRepository<SsoTicket, Integer> {
     @Query("SELECT s FROM SsoTicket s JOIN s.ticket t WHERE t.finished = false")
@@ -40,4 +42,5 @@ public interface SsoTicketRepository extends JpaRepository<SsoTicket, Integer> {
     @Query("DELETE FROM SsoTicket s WHERE s.ticket = :ticket")
     @org.springframework.transaction.annotation.Transactional
     void deleteByTicket(@Param("ticket") com.se.sebtl.model.Ticket ticket);
+
 }

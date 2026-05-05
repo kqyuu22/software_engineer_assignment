@@ -6,6 +6,7 @@ import java.util.Random;
 @Service
 public class Camera {
     private Random random = new Random();
+    private String lastCapturedPlate;
 
     private String generatePlate() {
         int part1 = 10 + random.nextInt(90);                    
@@ -14,11 +15,27 @@ public class Camera {
         return part1 + "" + letter + "-" + part2;
     }
 
-    public String capture() { return generatePlate(); }
+    public String capture() { 
+        lastCapturedPlate = generatePlate(); 
+        return lastCapturedPlate; 
+    }
 
-    public String captureCorrect(String expectedPlate) { return expectedPlate; }
+    public String captureCorrect(String expectedPlate) { 
+        lastCapturedPlate = expectedPlate; 
+        return lastCapturedPlate; 
+    }
 
-    public String captureWrongPlate() { return generatePlate(); }
+    public String captureWrongPlate() { 
+        lastCapturedPlate = generatePlate(); 
+        return lastCapturedPlate; 
+    }
 
-    public String captureFail() { return null; }
+    public String captureFail() { 
+        lastCapturedPlate = null; 
+        return null; 
+    }
+
+    public String getLastCapturedPlate() {
+        return lastCapturedPlate;
+    }
 }

@@ -21,6 +21,6 @@ public class IntersectionSign {
 
     public void sendFail() {
         System.out.println("Sign failure simulated");
-        // iotManager.reportSignFailure() — wired up later
+        // iotManager.reportSignFailure(); // wired up later
     }
 }

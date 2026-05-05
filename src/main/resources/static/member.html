@@ -109,7 +109,7 @@
                     const isPaid = p.status === "PAID";
                     const actionCell = isPaid
                         ? `<strong style="color:green;">Paid</strong>`
-                        : `<button class="pay-btn" onclick="executePayment(${p.billId})">Pay Now (BKPay)</button>`;
+                        : `<button class="pay-btn" onclick="executePayment(${p.billId}, ${p.userId}, ${p.amount})">Pay Now (BKPay)</button>`;
 
                     html += `<tr><td>${p.billingMonth ? p.billingMonth : 'N/A'}</td><td>$${p.amount}</td><td>${p.status}</td><td>${actionCell}</td></tr>`;
                 });
@@ -117,20 +117,41 @@
             } catch (e) { console.error("Failed to load payments"); }
         }
 
-        async function executePayment(paymentId) {
-            if (!confirm("Redirecting to BKPay. Confirm payment?")) return;
+        function executePayment(paymentId, userId, amount) {
+            const qrData = `Account: 1001000|UserId:${userId}|Amount:${amount}|BillId:${paymentId}`;
+            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}`;
+            
+            const overlay = document.createElement("div");
+            overlay.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:1000;";
+            overlay.innerHTML = `
+                <div style="background:white;padding:20px;text-align:center;border-radius:8px;box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+                    <h3>Scan to Pay</h3>
+                    <img src="${qrUrl}" alt="QR Code" style="margin:10px 0;width:200px;height:200px;" />
+                    <p style="margin:5px 0;"><strong>Target Account:</strong> 1001000</p>
+                    <p style="margin:5px 0;"><strong>User ID:</strong> ${userId} | <strong>Amount:</strong> $${amount}</p>
+                    <div style="margin-top:15px;display:flex;gap:10px;justify-content:center;">
+                        <button id="confirm-pay-btn" style="padding:8px 15px;background:#28a745;color:white;border:none;border-radius:4px;cursor:pointer;">I have paid</button>
+                        <button id="cancel-pay-btn" style="padding:8px 15px;background:#dc3545;color:white;border:none;border-radius:4px;cursor:pointer;">Cancel</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
 
-            try {
-                const res = await fetch(`${API_BASE}/payment/${paymentId}`, {
-                    method: "POST",
-                    headers: authHeaders
-                });
-                await handleResponse(res);
-                console.log("Execute Payment API Response:", res);
-                const data = await res.json();
-                alert(data.message);
-                loadPayments(); // Reload table to show PAID status
-            } catch (e) { alert("Payment failed."); }
+            document.getElementById("cancel-pay-btn").onclick = () => document.body.removeChild(overlay);
+            document.getElementById("confirm-pay-btn").onclick = async () => {
+                document.body.removeChild(overlay);
+                try {
+                    const res = await fetch(`${API_BASE}/payment/${paymentId}`, {
+                        method: "POST",
+                        headers: authHeaders
+                    });
+                    await handleResponse(res);
+                    console.log("Execute Payment API Response:", res);
+                    const data = await res.json();
+                    alert(data.message);
+                    loadPayments(); // Reload table to show PAID status
+                } catch (e) { alert("Payment failed."); }
+            };
         }
 
         window.onload = async () => {
