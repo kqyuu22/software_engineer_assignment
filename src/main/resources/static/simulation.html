@@ -92,16 +92,24 @@
                 
                 <div class="map-grid-container">
                     <div>
-                        <div class="section-label">SECTION A (SLOTS 1-100) — SIGN 2</div>
+                        <div class="section-label">SECTION A (SLOTS 1-48)</div>
                         <div id="map-a" class="parking-map"></div>
                     </div>
                     <div>
-                        <div class="section-label">SECTION B (SLOTS 101-200) — SIGN 1</div>
+                        <div class="section-label">SECTION B (SLOTS 49-96)</div>
                         <div id="map-b" class="parking-map"></div>
                     </div>
                     <div>
-                        <div class="section-label">SECTION C (SLOTS 201-250) — SIGN 0</div>
+                        <div class="section-label">SECTION C (SLOTS 97-144)</div>
                         <div id="map-c" class="parking-map"></div>
+                    </div>
+                    <div>
+                        <div class="section-label">SECTION D (SLOTS 145-192)</div>
+                        <div id="map-d" class="parking-map"></div>
+                    </div>
+                    <div>
+                        <div class="section-label">SECTION E (SLOTS 193-240)</div>
+                        <div id="map-e" class="parking-map"></div>
                     </div>
                 </div>
             </div>
@@ -400,17 +408,25 @@
                 const mapA = document.getElementById('map-a');
                 const mapB = document.getElementById('map-b');
                 const mapC = document.getElementById('map-c');
+                const mapD = document.getElementById('map-d');
+                const mapE = document.getElementById('map-e');
                 
-                mapA.innerHTML = ''; mapB.innerHTML = ''; mapC.innerHTML = '';
-                
+                mapA.innerHTML = ''; 
+                mapB.innerHTML = ''; 
+                mapC.innerHTML = '';
+                mapD.innerHTML = '';
+                mapE.innerHTML = '';
+
                 slots.forEach(slot => {
                     const div = document.createElement('div');
                     div.className = `slot ${slot.status}`; 
                     div.textContent = slot.slotId;
                     
-                    if(slot.slotId <= 100) mapA.appendChild(div);
-                    else if(slot.slotId <= 200) mapB.appendChild(div);
-                    else mapC.appendChild(div);
+                    if(slot.slotId <= 48) mapA.appendChild(div);
+                    else if(slot.slotId <= 96) mapB.appendChild(div);
+                    else if(slot.slotId <= 144) mapC.appendChild(div);
+                    else if(slot.slotId <= 192) mapD.appendChild(div);
+                    else mapE.appendChild(div);
                 });
             } catch (err) { console.error(err); }
         }

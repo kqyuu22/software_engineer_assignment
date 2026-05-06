@@ -35,7 +35,7 @@ SELECT
         WHEN i <= 192 THEN 'STUDENT'::slot_priority
         ELSE 'OTHER'::slot_priority
     END
-FROM generate_series(1, 250) AS i;
+FROM generate_series(1, 240) AS i;
 
 -- Occupy specific slots for our active tickets below
 UPDATE public.parking_slots SET status = 'OCCUPIED' WHERE slot_id IN (1, 10, 101, 201);

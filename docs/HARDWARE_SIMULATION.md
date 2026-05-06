@@ -2,6 +2,63 @@
 
 This documentation covers the simulated hardware and the API endpoints that operate the parking system. In a real-world scenario, these endpoints would be hit by actual IoT devices (sensors, cameras, gates) instead of user interfaces.
 
+## Simulation Flow
+**READ THIS IF YOU WANT TO TEST `/simulation`**
+
+During testing `/simulation`, see this section for clearer details. The numbering is strictly meaningful in this section.
+
+### **Normal Flow**
+*Do as these steps:*
+
+**1. Set the Hardware Status**
+- System Mode: *NORMAL*
+- Camera Status: *random* or *correct* or *wrong*
+- Card Reader Status: *Success*, *Guest* or *University Member* are both fine.
+- Gate Status: doesn't really matter
+- Signs: All *normal* (default)
+
+**2. Click Scan ID and Scan Plate**
+- *Guest*: Don't care Input User ID
+- *University Member*: Must input an ID
+- Camera Status:
+    - *random*: Don't care what plate is inputted, easy for testing
+    - *success*: Will read exactly what plate you input
+    - *wrong*: Will read a different plate from what you input, still considered a successful scan
+**Note**: We do not have any features to address the wrongly scanned license plate, we still treat it as a success scan at the entrance.
+
+**3. Click Execute Sequence Entrance**
+**Note**: You have to both click Scan ID and Scan Plate successfully.
+
+***WAIT FOR A BIT***
+
+Because the backend handles this quite slow, and only when the backend finishes, then the frontend can fetch the data and show.
+
+When success, you will receive an **assigned spot** - which is automatically shown **beside the Trigger Arrival button**.
+
+**4. Click Trigger Arrival button**
+If you wait for a bit *too* long, the timeout in the backend triggers, and Trigger Arrival is meaningless (you have to execute the entrance sequence again). Yes, this is such a pain. We currently do not have UI to show the timeout.
+
+You can still see the `RESERVED` slot status in the UI. If the slot status is back to `AVAILABLE` later on, this means Trigger Arrival failed.
+
+If you Trigger Arrival succeeds, then the slot status is changed to `OCCUPIED`. The **Ticket Section** will show the new ticket too.
+
+
+> This step finishes the full sequence from the entrance gate to the parking slot.
+
+**5. Choose an OCCUPIED slot ID and click Depart button**
+- The ticket information linked to that slot ID will be shown in **Ticket Information of the Slot Departure**. There will also appear a **Pay Button**.
+
+**6. Click Pay button**
+- For `SSO` ticket type: That's it! The backend will automatically create a billing id linked to the SSO ticket.
+- For `GUEST` ticket type: A modal appears! Choose Pay by Cash or Pay by QR Code, either way, the guest ticket will be automatically updated `final_calculated_fee` and `paid_directly`.
+
+If payment success, then the User ID and License Plate of that ticket payment will be automatically appear in the Exit Section - right above **Settle Ticket & Exit** button.
+
+**7. IMPORTANT: Remember to Click Settle Ticket & Exit button RIGHT AFTER PAYMENT**
+If you don't, we will have a "hanging ticket". Yes, this is also a pain, but we have not resolved this.
+
+That's it. Finish.
+
 ## IoT Services Overview
 
 The Java application (`src/main/java/com/se/sebtl/service/iot/`) models the following hardware components:
