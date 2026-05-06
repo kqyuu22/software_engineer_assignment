@@ -111,10 +111,10 @@
                 <!-- Camera Status -->
                 <label>Camera Status</label>
                 <select id="cameraStatus">
-                    <option value="correct" selected>Correct</option>
+                    <option value="correct">Correct</option>
                     <option value="wrong">Wrong</option>
                     <option value="fail">Fail</option>
-                    <option value="random">Random</option>
+                    <option value="random" selected>Random</option>
                 </select>
                 <!-- Card Reader Status -->
                 <label>Card Reader Status</label>
@@ -123,8 +123,8 @@
                     <option value="fail">Fail</option>
                 </select>
                 <select id="isGuest" onchange="updateDetectedRole()">
-                    <option value="false" selected>University Member</option>
-                    <option value="true">Guest</option>
+                    <option value="false">University Member</option>
+                    <option value="true" selected>Guest</option>
                 </select>
                 <!-- Gate Status -->
                 <label>Gate Status</label>
@@ -223,17 +223,22 @@
                 <!-- Exit Logic -->
                 <div class="card">
                     <h3>Exit Simulation</h3>
-                    <label>Hardware Trigger</label>
+                    <label>Departure Sensor Trigger</label>
                     <div style="display: flex; gap: 8px; margin-bottom: 16px;">
                         <input type="number" id="slotIdDeparture" placeholder="Slot Leaving" style="margin-bottom: 0;" />
                         <button onclick="simulateDeparture()" class="btn-secondary" style="width: auto;">Depart</button>
                     </div>
+
+                    <label>Ticket Information of the Slot Departure</label>
+                    <div id="ticketInfo">
+                        
+                    </div>
                     
                     <label>Kiosk Resolution</label>
-                    <button onclick="fetchActiveTickets(true)" class="btn-secondary" style="margin-bottom: 12px; font-size: 0.75rem;">Sync & Auto-Pick Ticket</button>
-                    <select id="activeTickets" onchange="autoFillExit()"></select>
+                    <!-- <button onclick="fetchActiveTickets(true)" class="btn-secondary" style="margin-bottom: 12px; font-size: 0.75rem;">Sync & Auto-Pick Ticket</button> -->
+                    <!-- <select id="activeTickets" onchange="autoFillExit()"></select> -->
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                        <input type="text" id="exitUserId" placeholder="Card ID" />
+                        <input type="text" id="exitUserId" placeholder="Card/User ID" />
                         <input type="text" id="exitPlate" placeholder="Plate" />
                     </div>
                     <button onclick="simulateExit()" class="btn-danger">Settle Ticket & Exit</button>
@@ -249,6 +254,13 @@
                                 <input type="number" id="slotIdArrival" placeholder="Slot ID" style="margin-bottom: 0;" />
                             </div>
                             <button onclick="simulateAction('car-arrival', 'slotIdArrival')" class="btn-success">Trigger Arrival</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3>Ticket Information</h3>
+                        <div id="activeTicketsInfo" style="font-size: 0.75rem; color: var(--text-muted);">
+                            <!-- Dynamically filled with active ticket info for debugging -->
                         </div>
                     </div>
 
@@ -560,10 +572,138 @@
         async function simulateAction(action, inputId) {
             const id = document.getElementById(inputId).value;
             if (!id) return logMessage('Target Slot required');
+            console.log(`Simulating ${action} for slot ${id}`);
             const response = await fetch(`/api/simulation/${action}?slotId=${id}`, { method: 'POST' });
             const data = await response.json();
             logMessage(response.ok ? `Success: ${data.message}` : `Failed: ${data.error}`);
+            
+            if (action === 'car-departure') {
+                if (data) {
+                    const t = data;
+                    const ticketInfo = document.getElementById("ticketInfo");
+                    ticketInfo.innerHTML = ''; // Clear previous
+
+                    const details = [
+                        `UID: ${t.userId}`,
+                        `Plate: ${t.licensePlate}`,
+                        `Arrived At: ${new Date(t.entryTime).toLocaleTimeString()}`,
+                        `Type: ${t.ticketType || 'UNKNOWN'}`,
+                        `Ticket ID: ${t.ticketId}`,
+                        `Amount Due: $${t.price}`
+                    ];
+
+                    details.forEach(text => {
+                        const div = document.createElement("div");
+                        div.textContent = text;
+                        ticketInfo.appendChild(div);
+                    });
+
+                    // Create the Pay Button
+                    const payButton = document.createElement("button");
+                    payButton.id = "payTicketButton";
+                    payButton.textContent = "Pay Ticket";
+                    payButton.style.marginTop = "10px";
+                    payButton.onclick = () => paymentHandler(t.ticketType, t.userId, t.price);
+                    ticketInfo.appendChild(payButton);
+
+                    // Placeholder for SSO Note
+                    const noteDiv = document.createElement("div");
+                    noteDiv.id = "paymentNote";
+                    noteDiv.style.fontSize = "0.75rem";
+                    noteDiv.style.marginTop = "8px";
+                    noteDiv.style.color = "var(--success)";
+                    ticketInfo.appendChild(noteDiv);
+
+                    logMessage(`Departed Vehicle - UID: ${t.userId}, Plate: ${t.licensePlate}`);
+                }
+            }
             fetchSlots();
+        }
+
+        async function paymentHandler(ticketType, userId, price) {
+            if (!ticketType || !userId) return logMessage('Invalid ticket information for payment');
+            let paidDirectly = ticketType !== 'GUEST'; // Assume non-guest tickets can be paid directly
+            
+            const processPayment = async () => {
+                setActionStatus('Processing Payment...');
+                try {
+                    const response = await fetch(`/api/simulation/pay?ticketType=${ticketType}&userId=${userId}&price=${price}&paidDirectly=${paidDirectly}`, { method: 'POST' });
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        logMessage(`Payment Success: ${data.message}`);
+                        // Disable the pay button after successful payment
+                        const payButton = document.getElementById('payTicketButton');
+                        if (payButton) {
+                            payButton.disabled = true;
+                        }
+                        if (ticketType === 'SSO') {
+                            const note = document.getElementById('paymentNote');
+                            if (note) note.textContent = "We already sent your ticket payment to BKPay";
+                        }
+                        // Set Card/User ID and Plate in the exit form for convenience
+                        document.getElementById('exitUserId').value = data.userID || 'UNKNOWN';
+                        document.getElementById('exitPlate').value = data.licensePlate || 'UNKNOWN';
+                    } else {
+                        logMessage(`Payment Failed: ${data.error}`);
+                    }
+                } catch (error) {
+                    logMessage('Payment error: Service unreachable');
+                }
+            };
+
+            if (ticketType === 'GUEST') {
+                // Create Modal for Guest Options
+                const modal = document.createElement('div');
+                Object.assign(modal.style, {
+                    position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
+                    backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center',
+                    alignItems: 'center', zIndex: '1000'
+                });
+
+                const content = document.createElement('div');
+                content.className = 'card';
+                content.style.width = '300px';
+                content.innerHTML = `
+                    <h3 style="margin-top:0">Select Payment Method</h3>
+                    <p style="font-size:0.8rem">Amount Due: <strong>$${price}</strong></p>
+                    <button id="payCash" class="btn-success" style="margin-bottom:8px">Pay by Cash</button>
+                    <button id="payQR" class="btn-dark" style="margin-bottom:8px">Pay by QR Code</button>
+                    <button id="closeModal" class="btn-secondary">Cancel</button>
+                    <div id="qrContainer" style="display:none; text-align:center; margin-top:15px;">
+                        <img id="qrImg" style="width:180px; height:180px; margin-bottom:10px;">
+                        <p style="font-size:0.7rem; color:var(--text-muted)">Scan to pay $${price}</p>
+                    </div>
+                `;
+
+                modal.appendChild(content);
+                document.body.appendChild(modal);
+
+                // Button Logic
+                content.querySelector('#closeModal').onclick = () => document.body.removeChild(modal);
+                
+                content.querySelector('#payCash').onclick = () => {
+                    paidDirectly = true; // Override to indicate cash payment
+                    document.body.removeChild(modal);
+                    processPayment();
+                };
+
+                content.querySelector('#payQR').onclick = () => {
+                    paidDirectly = false; // Override to indicate QR payment
+                    const qrData = `Pay Ticket, UID: ${userId}, Amount: $${price}, Receiver: Parking Lot, Ticket Type: ${ticketType}`;
+                    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}`;
+                    const qrContainer = content.querySelector('#qrContainer');
+                    content.querySelector('#qrImg').src = qrUrl;
+                    qrContainer.style.display = 'block';
+                    
+                    // Change Cash button to "Confirm Payment After Scanning"
+                    const cashBtn = content.querySelector('#payCash');
+                    cashBtn.textContent = "I have scanned & paid";
+                };
+            } else {
+                // For SSO or others, direct process
+                processPayment();
+            }
         }
 
         async function simulateBulkSensor(action) {
@@ -613,20 +753,64 @@
         }
 
         async function fetchActiveTickets(autoPick = false) {
-            const response = await fetch('/api/simulation/active-tickets');
-            const data = await response.json();
-            const select = document.getElementById('activeTickets');
-            select.innerHTML = '<option value="">-- Select Vehicle --</option>';
-            data.forEach(t => {
-                const opt = document.createElement('option');
-                opt.value = JSON.stringify(t);
-                opt.textContent = `UID ${t.userId} | Plate: ${t.licensePlate}`;
-                select.appendChild(opt);
-            });
-            if (autoPick && data.length > 0) {
-                select.value = JSON.stringify(data[0]);
-                autoFillExit();
+            try {
+                const response = await fetch('/api/simulation/active-tickets');
+                const data = await response.json();
+                
+                const ticketInfoContainer = document.getElementById("activeTicketsInfo");
+                ticketInfoContainer.innerHTML = ''; // Clear previous content
+
+                if (data.length === 0) {
+                    ticketInfoContainer.innerHTML = '<div style="padding: 10px; text-align: center;">No active tickets found.</div>';
+                    return;
+                }
+
+                data.forEach((t, index) => {
+                    const ticketCard = document.createElement('div');
+                    ticketCard.style.padding = '12px 0';
+                    if (index > 0) ticketCard.style.borderTop = '1px solid var(--border)';
+                    
+                    // Helper to create rows for each attribute
+                    const createRow = (label, value) => {
+                        return `<div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                            <span style="font-weight: 600; color: var(--text-muted);">${label}:</span>
+                            <span style="color: var(--text-main);">${value !== null && value !== undefined ? value : '--'}</span>
+                        </div>`;
+                    };
+
+                    ticketCard.innerHTML = `
+                        ${createRow('Type', t.ticketType)}
+                        ${createRow('Ticket ID', t.ticketId)}
+                        ${createRow('User ID', t.holderIdentifier)}
+                        ${createRow('Entry Time', t.entryTime ? new Date(t.entryTime).toLocaleTimeString() : 'N/A')}
+                        ${createRow('Exit Time', t.exitTime ? new Date(t.exitTime).toLocaleTimeString() : 'N/A')}
+                        ${createRow('License Plate', t.licensePlate)}
+                        ${createRow('Parking Slot ID', t.parkingSpot)}
+                        ${createRow('Finished', t.finished ? '<span style="color:var(--success)">YES</span>' : '<span style="color:var(--danger)">NO</span>')}
+                        <button class="btn-secondary" style="margin-top: 8px; font-size: 0.7rem; padding: 4px;" 
+                                onclick="fillExitForm('${t.holderIdentifier}', '${t.licensePlate}')">
+                            Select for Exit
+                        </button>
+                    `;
+                    
+                    ticketInfoContainer.appendChild(ticketCard);
+                });
+
+                // Auto-pick logic if requested
+                if (autoPick && data.length > 0) {
+                    fillExitForm(data[0].holderIdentifier, data[0].licensePlate);
+                }
+            } catch (err) {
+                console.error("Error fetching active tickets:", err);
+                logMessage('Error: Could not sync active tickets.');
             }
+        }
+
+        // Helper function to fill the Exit Simulation form fields
+        function fillExitForm(userId, plate) {
+            document.getElementById('exitUserId').value = userId || '';
+            document.getElementById('exitPlate').value = plate || '';
+            setActionStatus('Ticket selected for exit resolution');
         }
 
         function autoFillExit() {
@@ -640,11 +824,13 @@
         async function simulateExit() {
             const uid = document.getElementById('exitUserId').value;
             const plate = document.getElementById('exitPlate').value;
+
             const response = await fetch(`/api/simulation/exit?userId=${uid}&licensePlate=${encodeURIComponent(plate)}`, { method: 'POST' });
+            
             const data = await response.json();
             logMessage(response.ok ? `Exit Granted: ${data.message}` : `Exit Error: ${data.error}`);
             fetchSlots();
-            fetchActiveTickets();
+            // fetchActiveTickets();
         }
 
         window.onload = () => {

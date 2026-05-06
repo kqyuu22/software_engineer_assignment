@@ -6,4 +6,5 @@ import java.util.List;
 
 public interface BillingRepository extends JpaRepository<Billing, Long> {
     List<Billing> findByUserIdOrderByLastUpdatedDesc(Integer userId);
+    Billing findByUserId(Integer userId);
 }

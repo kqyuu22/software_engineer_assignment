@@ -12,4 +12,14 @@ public interface TicketViewRepository extends JpaRepository<TicketView, TicketVi
 
     boolean existsByLicensePlateIgnoreCaseAndFinishedFalse(String licensePlate);
     boolean existsByHolderIdentifierAndFinishedFalse(String holderIdentifier);
+
+    TicketView findByParkingSpotAndFinishedFalse(int parkingSpot);
+    String getLicensePlateByTicketId(Integer ticketId);
+    String getHolderIdentifierByTicketId(Integer ticketId);
+
+    // Find all active tickets (not finished) for all users
+    List<TicketView> findByFinishedFalseOrderByEntryTimeDesc();
+
+    // Find active tickets for a specific user
+    List<TicketView> findByHolderIdentifierAndFinishedFalse(String holderIdentifier);
 }

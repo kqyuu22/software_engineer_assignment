@@ -84,13 +84,45 @@ Note: When in **Guest** mode, ignore the card input.
 - Trigger car arrival by route `POST /api/simulation/car-arrival?slotId=${id}`, then the slot status will be set to `OCCUPIED`
 
 **2. Car Departure (Hardware Trigger):** Simulating the car vacating the physical parking slot.
-- Triggered by `POST /api/simulation/car-departure?slotId=${id}`.
+- Fetch `POST /api/simulation/car-departure?slotId=${id}`.
+- The API Endpoint will send the frontend information about the ticket linked to the slot ID:
+    - License plate
+    - Ticket ID
+    - Ticket Type: `GUEST` or `SSO`
+    - Entry Time
+    - Exit Time
+    - User ID: named Holder Identifier in TicketView, is a 4-digit number for `SSO`, and `GUEST-<ID>` for `GUEST` in TicketView
+    - Price: Extract from table price, which is configured based on role (LECTURER, STUDENT, STAFF, OTHER)
 - The hardware sensor directly tells the IoT Manager the space is now empty, updating the slot status to `AVAILABLE`.
+- The UI will show the ticket information (just listed above) along with a Pay button. About the Pay button:
+    - If ticket type is `GUEST`
+        - Open a modal which has 2 buttons: "Pay by Cash" and "Pay by QR Code"
+        - If "Pay by Cash" is clicked => Considered Paid
+        - If "Pay by QR Code" is clicked => Show a QR code based on a certain information. Decide on a QR Data and create a QR code based on that data, i.e. the code below
+        ```
+        const qrData = `Pay Ticket, UID: ${userId}, Amount: $${price}, Receiver: Parking Lot, Ticket Type: ${ticketType}`;
+
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}`;
+        ```
+        - Click "I have scanned and pay", in real life, we will validate via the banking service. => Finish Payment
+
+    - If ticket type is `SSO`:
+        - Just click the Pay button, the backend will handle sending the payment to the correct table in the database. In real life, this will be send to the BKPay service. Therefore, we will show a note: "We already sent your ticket payment to BKPay"
+
+- After the payment is finished, the User Id and License Plate will be shown on the exit inputs, ready for you to click exit with this info.
+
+> **NOTE**: Currently, if you trigger car departure without exitting, we will have a "hanging ticket" where its parking slot is marked as `AVAILABLE` but the ticket is not finished, meaning some new ticket may be assigned to this parking slot - who is still linked with another unfinished ticket.
+
 
 **3. Car Exit (Kiosk Resolution):** Simulating the car arriving at the exit gate, scanning its details, and leaving the premises.
-- First, the kiosk reads active sessions: `GET /api/simulation/active-tickets`
-- Then, it triggers the exit sequence: `POST /api/simulation/exit?userId=${uid}&licensePlate=${encodeURIComponent(plate)}`
-- This validates the user, updates the active ticket (recording the `exit_time` which triggers the DB billing functions), marks the ticket as finished, and safely opens the exit Gate.
+- Fetch `POST /api/simulation/exit?userId=${uid}&licensePlate=${encodeURIComponent(plate)}`
+- This validates the user:
+    - If the user ID is unfound &rarr; Alert `SECURITY_BREACH`
+    - If the license plate is not matched with the user ID &rarr; Alert `SECURITY_BREACH`
+
+
+
+- Update the ticket's exit time, marks the ticket as finished, and safely opens the exit Gate.
 
 ## Note About Simulation Page
 - Auto refresh every `AUTO_REFRESH_INTERVAL` and each refresh, fetch:

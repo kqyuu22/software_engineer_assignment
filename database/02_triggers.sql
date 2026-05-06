@@ -14,60 +14,60 @@ END $$;
 -- 1. SSO CHECKOUT AUTOMATION
 -- Updated to reference the shared public.tickets table
 -- ==============================================================================
-CREATE OR REPLACE FUNCTION process_sso_checkout() RETURNS TRIGGER AS $$
-DECLARE
-    hours_parked numeric;
-    ticket_total numeric;
-    target_bill_id bigint;
-    current_month date;
-    t_entry_time timestamptz;
-    t_exit_time timestamptz;
-    t_price numeric;
-BEGIN
-    -- Get data from the parent ticket table
-    SELECT entry_time, exit_time, price 
-    INTO t_entry_time, t_exit_time, t_price
-    FROM public.tickets WHERE ticket_id = NEW.ticket_id;
+-- CREATE OR REPLACE FUNCTION process_sso_checkout() RETURNS TRIGGER AS $$
+-- DECLARE
+--     hours_parked numeric;
+--     ticket_total numeric;
+--     target_bill_id bigint;
+--     current_month date;
+--     t_entry_time timestamptz;
+--     t_exit_time timestamptz;
+--     t_price numeric;
+-- BEGIN
+--     -- Get data from the parent ticket table
+--     SELECT entry_time, exit_time, price 
+--     INTO t_entry_time, t_exit_time, t_price
+--     FROM public.tickets WHERE ticket_id = NEW.ticket_id;
 
-    -- Execute only when a car officially leaves (exit_time is set)
-    IF t_exit_time IS NOT NULL THEN
+--     -- Execute only when a car officially leaves (exit_time is set)
+--     IF t_exit_time IS NOT NULL THEN
         
-        -- Calculate hours
-        hours_parked := CEIL(EXTRACT(EPOCH FROM (t_exit_time - t_entry_time)) / 3600.0);
-        IF hours_parked < 1 THEN hours_parked := 1; END IF;
+--         -- Calculate hours
+--         hours_parked := CEIL(EXTRACT(EPOCH FROM (t_exit_time - t_entry_time)) / 3600.0);
+--         IF hours_parked < 1 THEN hours_parked := 1; END IF;
 
-        ticket_total := t_price * hours_parked;
-        current_month := date_trunc('month', t_exit_time)::date;
+--         ticket_total := t_price * hours_parked;
+--         current_month := date_trunc('month', t_exit_time)::date;
 
-        -- Find or Create Bill
-        SELECT bill_id INTO target_bill_id FROM public.billing 
-        WHERE user_id = NEW.user_id AND billing_month = current_month AND status = 'UNPAID'
-        LIMIT 1;
+--         -- Find or Create Bill
+--         SELECT bill_id INTO target_bill_id FROM public.billing 
+--         WHERE user_id = NEW.user_id AND billing_month = current_month AND status = 'UNPAID'
+--         LIMIT 1;
 
-        IF target_bill_id IS NULL THEN
-            INSERT INTO public.billing (user_id, billing_month, amount, status)
-            VALUES (NEW.user_id, current_month, ticket_total, 'UNPAID')
-            RETURNING bill_id INTO target_bill_id;
-        ELSE
-            UPDATE public.billing SET amount = amount + ticket_total, last_updated = now()
-            WHERE bill_id = target_bill_id;
-        END IF;
+--         IF target_bill_id IS NULL THEN
+--             INSERT INTO public.billing (user_id, billing_month, amount, status)
+--             VALUES (NEW.user_id, current_month, ticket_total, 'UNPAID')
+--             RETURNING bill_id INTO target_bill_id;
+--         ELSE
+--             UPDATE public.billing SET amount = amount + ticket_total, last_updated = now()
+--             WHERE bill_id = target_bill_id;
+--         END IF;
 
-        -- Link bill to sso_ticket
-        NEW.bill_id := target_bill_id;
+--         -- Link bill to sso_ticket
+--         NEW.bill_id := target_bill_id;
 
-        -- Finalize the parent ticket
-        UPDATE public.tickets SET finished = true WHERE ticket_id = NEW.ticket_id;
-    END IF;
+--         -- Finalize the parent ticket
+--         UPDATE public.tickets SET finished = true WHERE ticket_id = NEW.ticket_id;
+--     END IF;
 
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+--     RETURN NEW;
+-- END;
+-- $$ LANGUAGE plpgsql;
 
--- Trigger remains on sso_tickets
-CREATE TRIGGER sso_ticket_checkout_trigger
-BEFORE UPDATE ON public.sso_tickets
-FOR EACH ROW EXECUTE FUNCTION process_sso_checkout();
+-- -- Trigger remains on sso_tickets
+-- CREATE TRIGGER sso_ticket_checkout_trigger
+-- BEFORE UPDATE ON public.sso_tickets
+-- FOR EACH ROW EXECUTE FUNCTION process_sso_checkout();
 
 -- ==============================================================================
 -- 2. CROSS-TABLE ACTIVE PLATE VALIDATION

@@ -36,9 +36,9 @@ public class AuthController {
             String expiryIso = java.time.OffsetDateTime.now().plusMinutes(2).toString();
             String fakeJwtToken = "Bearer " + user.getUserId() + "; Expr " + expiryIso; // Token valid for 2 minutes for testing
 
-            System.out.println("[AuthController] User " + user.getUsername() + " logged in with role: " + user.getRole());
+            System.out.println("[AuthController] User " + user.getUsername() + " logged in with role: " + user.getRole() + " and name: " + user.getName());
             
-            return ResponseEntity.ok(new AuthResponse(fakeJwtToken, user.getRole().toString()));
+            return ResponseEntity.ok(new AuthResponse(fakeJwtToken, user.getRole().toString(), user.getName()));
         }
 
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -57,7 +57,8 @@ class LoginRequest {
 class AuthResponse {
     public String token;
     public String role;
-    public AuthResponse(String token, String role) { this.token = token; this.role = role; }
+    public String name;
+    public AuthResponse(String token, String role, String name) { this.token = token; this.role = role; this.name = name; }
 }
 
 class ErrorResponse {

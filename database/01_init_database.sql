@@ -125,11 +125,14 @@ SELECT
     t.finished
 FROM public.tickets t
 JOIN public.sso_tickets st ON t.ticket_id = st.ticket_id
+
 UNION ALL
+
 SELECT 
     'GUEST' AS ticket_type,
     t.ticket_id,
-    'GUEST-' || t.ticket_id::text AS holder_identifier, 
+    -- Updated to use GUEST- + guest_ticket_id
+    'GUEST-' || gt.guest_ticket_id::text AS holder_identifier, 
     t.entry_time,
     t.exit_time,
     t.license_plate,

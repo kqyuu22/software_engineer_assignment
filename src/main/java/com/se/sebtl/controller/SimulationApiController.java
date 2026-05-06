@@ -8,15 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import com.se.sebtl.service.iot.HardwareSimulatorService;
 import com.se.sebtl.service.IoTManagerService;
 import com.se.sebtl.service.ParkingService;
-import com.se.sebtl.model.Role;
-import com.se.sebtl.model.SsoTicket;
-import com.se.sebtl.model.GuestTicket;
-import com.se.sebtl.model.Price;
-import com.se.sebtl.model.Ticket;
-import com.se.sebtl.model.SystemMode;
-import com.se.sebtl.model.Alert;
-import com.se.sebtl.model.AlertType;
-import com.se.sebtl.model.ParkingSlot;
+import com.se.sebtl.model.*;
 import com.se.sebtl.repository.SsoTicketRepository;
 import com.se.sebtl.repository.GuestTicketRepository;
 import com.se.sebtl.repository.UnimemberRepository;
@@ -28,6 +20,8 @@ import com.se.sebtl.service.iot.Gate;
 import com.se.sebtl.service.iot.Camera;
 import com.se.sebtl.service.iot.CardReader;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +31,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/simulation")
+@CrossOrigin(origins = "*")
 public class SimulationApiController {
 
     private final TicketViewRepository ticketViewRepository;
@@ -88,7 +83,7 @@ public class SimulationApiController {
     public ResponseEntity<List<ParkingSlot>> getAllSlots() {
         return ResponseEntity.ok(parkingService.getAllSlots()); 
     }
-
+    // ----- IOT STATUS ENDPOINTS -----
     @GetMapping("/signs")
     public ResponseEntity<?> getSignStatus() {
         return ResponseEntity.ok(iotManager.getSignDirections());
@@ -138,6 +133,78 @@ public class SimulationApiController {
         Map<String, Object> response = new HashMap<>();
         response.put("failures", iotManager.getSignFailures());
         return ResponseEntity.ok(response);
+    }
+
+    // @PostMapping("/sensor-failure")
+    // public ResponseEntity<?> sensorFailure(@RequestParam int slotId) {
+    //     hardwareSimulator.simulateSensorFailure(slotId);
+        
+    //     Alert alert = new Alert();
+    //     alert.setType(AlertType.SYSTEM_FAILURE);
+    //     alert.setMessage("Hardware sensor malfunction detected at slot " + slotId);
+    //     alertRepository.save(alert);
+
+    //     Map<String, String> response = new HashMap<>();
+    //     response.put("message", "Triggered sensor failure for slot " + slotId);
+    //     return ResponseEntity.ok(response);
+    // }
+
+    // @PostMapping("/sensor-fix")
+    // public ResponseEntity<?> sensorFix(@RequestParam int slotId) {
+    //     hardwareSimulator.simulateSensorFix(slotId);
+    //     Map<String, String> response = new HashMap<>();
+    //     response.put("message", "Triggered sensor fix for slot " + slotId);
+    //     return ResponseEntity.ok(response);
+    // }
+
+    @PostMapping("/sensor-failure-bulk")
+    public ResponseEntity<?> sensorFailureBulk(@RequestBody List<Integer> slotIds) {
+        for (int slotId : slotIds) {
+            hardwareSimulator.simulateSensorFailure(slotId);
+        }
+        Alert alert = new Alert();
+        alert.setType(AlertType.SYSTEM_FAILURE);
+        alert.setMessage("Hardware sensor malfunction detected at slots: " + slotIds.toString());
+        alertRepository.save(alert);
+
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Triggered sensor failure for " + slotIds.size() + " slots");
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/sensor-fix-bulk")
+    public ResponseEntity<?> sensorFixBulk(@RequestBody List<Integer> slotIds) {
+        for (int slotId : slotIds) {
+            hardwareSimulator.simulateSensorFix(slotId);
+        }
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Triggered sensor fix for " + slotIds.size() + " slots");
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/active-tickets")
+    public List<TicketView> getActiveTickets() {
+        // List<Map<String, Object>> active = new java.util.ArrayList<>();
+        
+        // ssoTicketRepository.findByFinishedFalse().forEach(t -> {
+        //     Map<String, Object> map = new HashMap<>();
+        //     map.put("userId", t.getUserId());
+        //     map.put("licensePlate", t.getLicensePlate());
+        //     active.add(map);
+        // });
+
+        // guestTicketRepository.findAll().stream()
+        //     .filter(t -> t.getFinished() != null && !t.getFinished())
+        //     .forEach(t -> {
+        //         Map<String, Object> map = new HashMap<>();
+        //         map.put("userId", "Guest");
+        //         map.put("licensePlate", t.getLicensePlate());
+        //         active.add(map);
+        //     });
+            
+        // return ResponseEntity.ok(active);
+
+        return ticketViewRepository.findByFinishedFalseOrderByEntryTimeDesc();
     }
 
     // ----- SCANNING ------
@@ -353,134 +420,172 @@ public class SimulationApiController {
 
     @PostMapping("/car-departure")
     public ResponseEntity<?> carDeparture(@RequestParam int slotId) {
-        hardwareSimulator.simulateCarDeparture(slotId);
-        Map<String, String> response = new HashMap<>();
-        response.put("message", "Triggered car departure for slot " + slotId);
-        return ResponseEntity.ok(response);
-    }
-
-    @PostMapping("/sensor-failure")
-    public ResponseEntity<?> sensorFailure(@RequestParam int slotId) {
-        hardwareSimulator.simulateSensorFailure(slotId);
-        
-        Alert alert = new Alert();
-        alert.setType(AlertType.SYSTEM_FAILURE);
-        alert.setMessage("Hardware sensor malfunction detected at slot " + slotId);
-        alertRepository.save(alert);
-
-        Map<String, String> response = new HashMap<>();
-        response.put("message", "Triggered sensor failure for slot " + slotId);
-        return ResponseEntity.ok(response);
-    }
-
-    @PostMapping("/sensor-fix")
-    public ResponseEntity<?> sensorFix(@RequestParam int slotId) {
-        hardwareSimulator.simulateSensorFix(slotId);
-        Map<String, String> response = new HashMap<>();
-        response.put("message", "Triggered sensor fix for slot " + slotId);
-        return ResponseEntity.ok(response);
-    }
-
-    @PostMapping("/sensor-failure-bulk")
-    public ResponseEntity<?> sensorFailureBulk(@RequestBody List<Integer> slotIds) {
-        for (int slotId : slotIds) {
-            hardwareSimulator.simulateSensorFailure(slotId);
+        try {
+            TicketView ticket = ticketViewRepository.findByParkingSpotAndFinishedFalse(slotId);
+            System.out.println("[SimulationApiController] Simulating car departure for slot " + slotId + ". Found ticket: " + (ticket != null ? "Yes, Ticket ID: " + ticket.getTicketId() : "No"));
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Triggered car departure for slot " + slotId);
+            if (ticket != null) {
+                Role role;
+                if (ticket.getTicketType().equals("GUEST")){
+                    role = Role.OTHER;
+                }
+                else {
+                    role = unimemberRepository.findRoleByUserId(Integer.parseInt(ticket.getHolderIdentifier())).orElse(Role.OTHER);
+                }
+                response.put("licensePlate", ticket.getLicensePlate());
+                response.put("ticketId", ticket.getTicketId());
+                response.put("ticketType", ticket.getTicketType());
+                response.put("entryTime", ticket.getEntryTime());
+                response.put("userId", ticket.getUserId());
+                response.put("price", priceRepository.findById(role).map(Price::getPrice).orElse(java.math.BigDecimal.ZERO));
+            } else {
+                response.put("licensePlate", "Unknown");
+                response.put("ticketId", "Unknown");
+                response.put("ticketType", "Unknown");
+                response.put("entryTime", "Unknown");
+                response.put("userId", "Unknown");
+                response.put("price", "Unknown");
+            }
+            hardwareSimulator.simulateCarDeparture(slotId);
+            return ResponseEntity.ok(response);
         }
-        Alert alert = new Alert();
-        alert.setType(AlertType.SYSTEM_FAILURE);
-        alert.setMessage("Hardware sensor malfunction detected at slots: " + slotIds.toString());
-        alertRepository.save(alert);
-
-        Map<String, String> response = new HashMap<>();
-        response.put("message", "Triggered sensor failure for " + slotIds.size() + " slots");
-        return ResponseEntity.ok(response);
-    }
-
-    @PostMapping("/sensor-fix-bulk")
-    public ResponseEntity<?> sensorFixBulk(@RequestBody List<Integer> slotIds) {
-        for (int slotId : slotIds) {
-            hardwareSimulator.simulateSensorFix(slotId);
+        catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Error during car departure simulation: " + e.getMessage());
+            return ResponseEntity.status(500).body(error);
         }
-        Map<String, String> response = new HashMap<>();
-        response.put("message", "Triggered sensor fix for " + slotIds.size() + " slots");
-        return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/active-tickets")
-    public ResponseEntity<List<Map<String, Object>>> getActiveTickets() {
-        List<Map<String, Object>> active = new java.util.ArrayList<>();
-        
-        ssoTicketRepository.findByFinishedFalse().forEach(t -> {
-            Map<String, Object> map = new HashMap<>();
-            map.put("userId", t.getUserId());
-            map.put("licensePlate", t.getLicensePlate());
-            active.add(map);
-        });
+    
+    @PostMapping("/pay")
+    public ResponseEntity<?> pay(@RequestParam String ticketType, @RequestParam String userId, @RequestParam java.math.BigDecimal price, @RequestParam boolean paidDirectly){
+        System.out.println("[SimulationApiController] Processing payment for ticketType: " + ticketType + ", userId: " + userId + ", price: " + price + ", paidDirectly: " + paidDirectly);
+        if (ticketType.equals("GUEST")){
+            // UserID will in the format "GUEST-<ticketId>"
+            String[] parts = userId.split("-");
+            if (parts.length != 2 || !parts[0].equals("GUEST")) {
+                Map<String, String> error = new HashMap<>();
+                error.put("error", "Invalid userId format for guest. Expected format: GUEST-<ticketId>");
+                return ResponseEntity.badRequest().body(error);
+            }
+            try {
+                int ticketId = Integer.parseInt(parts[1]);
+                Optional<GuestTicket> guestTicketOpt = guestTicketRepository.findById(ticketId);
+                if (guestTicketOpt.isEmpty()) {
+                    Map<String, String> error = new HashMap<>();
+                    error.put("error", "Guest ticket not found for ID: " + ticketId);
+                    return ResponseEntity.badRequest().body(error);
+                }
+                
+                GuestTicket guestTicket = guestTicketOpt.get();
+                // guestTicket.setFinalCalculatedFee(priceRepository.findById(Role.OTHER).map(Price::getPrice).orElse(java.math.BigDecimal.ZERO)); 
+                guestTicket.setFinalCalculatedFee(price);
+                guestTicket.setPaidDirectly(paidDirectly);
+                // Assuming guest tickets are charged at OTHER rate
+                guestTicketRepository.save(guestTicket);
 
-        guestTicketRepository.findAll().stream()
-            .filter(t -> t.getFinished() != null && !t.getFinished())
-            .forEach(t -> {
-                Map<String, Object> map = new HashMap<>();
-                map.put("userId", "Guest");
-                map.put("licensePlate", t.getLicensePlate());
-                active.add(map);
-            });
-            
-        return ResponseEntity.ok(active);
+                BigDecimal finalFee = guestTicket.getFinalCalculatedFee();
+                String licensePlate = guestTicket.getTicket().getLicensePlate();
+
+                System.out.println("[SimulationApiController] Updated guest ticket ID " + ticketId + " with final calculated fee: " + finalFee);
+
+                finalFee = finalFee != null ? finalFee : new java.math.BigDecimal(-1); // Handle null case just in case
+                Map<String, Object> response = new HashMap<>();
+                response.put("message", "Payment successful for guest ticket ID: " + ticketId + ". Amount paid: " + finalFee);
+                response.put("userId", userId);
+                response.put("licensePlate", licensePlate);
+                return ResponseEntity.ok(response);
+            } catch (NumberFormatException e) {
+                Map<String, String> error = new HashMap<>();
+                error.put("error", "Invalid ticket ID format. Expected an integer after GUEST-");
+                return ResponseEntity.badRequest().body(error);
+            }
+        }
+        if (ticketType.equals("SSO")){
+            try {
+                int userIdInt = Integer.parseInt(userId);
+                Optional<SsoTicket> ssoTicketOpt = ssoTicketRepository.findByUserIdAndFinishedFalse(userIdInt);
+                if (ssoTicketOpt.isEmpty()) {
+                    Map<String, String> error = new HashMap<>();
+                    error.put("error", "Active SSO ticket not found for user ID: " + userIdInt);
+                    return ResponseEntity.badRequest().body(error);
+                }
+                
+                SsoTicket ssoTicket = ssoTicketOpt.get();
+                Billing bill = billingRepository.findByUserId(ssoTicket.getUserId());
+                System.out.println("[SimulationApiController] Current bill for user ID " + ssoTicket.getUserId() + ", Bill ID: " + (bill != null ? bill.getBillId() : "No existing bill") + ". Adding price: " + price);
+                
+                if (bill == null) {
+                    bill = new Billing();
+                    bill.setUserId(ssoTicket.getUserId());
+                    bill.setAmount(price);
+                    bill.setBillingMonth(LocalDate.now().withDayOfMonth(1));
+                    System.out.println("[SimulationApiController] Creating new bill for user ID " + ssoTicket.getUserId() + " with amount: " + price);
+                }
+                else {
+                    bill.setAmount(bill.getAmount().add(price));
+                    bill.setLastUpdated(java.time.OffsetDateTime.now());
+                    System.out.println("[SimulationApiController] Updated bill amount for user ID " + ssoTicket.getUserId() + ", Bill ID: " + bill.getBillId() + ", New Amount: " + bill.getAmount());
+                }
+                System.out.println("[SimulationApiController] Saving bill for user ID " + ssoTicket.getUserId() + ", Bill ID: " + (bill.getBillId() != null ? bill.getBillId() : "New bill") + ", Amount: " + bill.getAmount());
+                ssoTicket.setBillId(bill.getBillId());
+                
+                billingRepository.save(bill);
+                ssoTicketRepository.save(ssoTicket);
+
+                System.out.println("[SimulationApiController] Payment processed for SSO ticket ID " + ssoTicket.getTicket().getTicketId() + ", User ID: " + ssoTicket.getUserId() + ". Amount paid: " + price);
+                Map<String, Object> response = new HashMap<>();
+                response.put("message", "Payment successful for SSO ticket ID: " + ssoTicket.getTicket().getTicketId() + ". Amount paid: " + price);
+
+                return ResponseEntity.ok(response);
+            } catch (NumberFormatException e) {
+                Map<String, String> error = new HashMap<>();
+                error.put("error", "Invalid user ID format. Expected an integer.");
+                return ResponseEntity.badRequest().body(error);
+            }
+        }
+        return ResponseEntity.badRequest().body(Map.of("error", "Invalid ticket type. Expected 'GUEST' or 'SSO'."));
     }
-
     
 
     @Transactional
     @PostMapping("/exit")
-    public ResponseEntity<?> exit(@RequestParam int userId, @RequestParam String licensePlate) {
+    public ResponseEntity<?> exit(@RequestParam String userId, @RequestParam String licensePlate) {
         Map<String, Object> response = new HashMap<>();
         
         Integer ticketId = null;
+        System.out.println("[SimulationApiController] Processing exit for userId: " + userId + ", licensePlate: " + licensePlate);
+       
+        // Find to see if there is a matching active ticket for this userId or license plate
+        Optional<TicketView> ticketOpt = ticketViewRepository.findByHolderIdentifierAndFinishedFalse(String.valueOf(userId)).stream().findFirst();
 
-        if (userId > 0 && unimemberRepository.existsById(userId)) {
-            Optional<SsoTicket> ticketOpt = ssoTicketRepository.findByUserIdAndFinishedFalse(userId);
-            if (ticketOpt.isEmpty()) {
-                response.put("error", "Exception: No active ticket found for this card (User ID: " + userId + ").");
-                Alert alert = new Alert();
-                alert.setType(AlertType.SECURITY_BREACH);
-                alert.setMessage("Exit attempted but no active ticket found for User ID: " + userId);
-                alertRepository.save(alert);
-                return ResponseEntity.badRequest().body(response);
-            }
-            SsoTicket ticket = ticketOpt.get();
-            if (ticket.getLicensePlate() == null || !ticket.getLicensePlate().equalsIgnoreCase(licensePlate)) {
-                response.put("error", "Exception: Registered plate mismatch. Expected " + ticket.getLicensePlate() + " but scanned " + licensePlate);
-                Alert alert = new Alert();
-                alert.setType(AlertType.SECURITY_BREACH);
-                alert.setMessage("Plate mismatch at exit. User ID " + userId + " expected " + ticket.getLicensePlate() + " but scanned " + licensePlate);
-                alertRepository.save(alert);
-                return ResponseEntity.badRequest().body(response);
-            }
-            ticketRepository.updateExitTimeAndFinish(ticket.getTicketId(), java.time.OffsetDateTime.now());
-            ticketId = ticket.getTicketId();
-            if (ticket.getParkingSpot() != null) {
-                hardwareSimulator.simulateCarDeparture(ticket.getParkingSpot());
-            }
-        } else {
-            Optional<GuestTicket> ticketOpt = guestTicketRepository.findByLicensePlateAndFinishedFalse(licensePlate);
-            if (ticketOpt.isEmpty()) {
-                response.put("error", "Exception: No active guest ticket found for plate: " + licensePlate);
-                Alert alert = new Alert();
-                alert.setType(AlertType.SECURITY_BREACH);
-                alert.setMessage("Exit attempted but no active guest ticket found for plate: " + licensePlate);
-                alertRepository.save(alert);
-                return ResponseEntity.badRequest().body(response);
-            }
-            GuestTicket ticket = ticketOpt.get();
-            ticketRepository.updateExitTimeAndFinish(ticket.getTicketId(), java.time.OffsetDateTime.now());
-            ticketId = ticket.getTicketId();
-            if (ticket.getParkingSpot() != null) {
-                hardwareSimulator.simulateCarDeparture(ticket.getParkingSpot());
-            }
+        System.out.println("[SimulationApiController] Active ticket lookup for userId: " + userId + " found: " + (ticketOpt.isPresent() ? "Yes, Ticket ID: " + ticketOpt.get().getTicketId() : "No"));
+        if (ticketOpt.isEmpty()){
+            response.put("error", "Exception: No active ticket found for this card (User ID: " + userId + ").");
+            Alert alert = new Alert();
+            alert.setType(AlertType.SECURITY_BREACH);
+            alert.setMessage("Exit attempted but no active ticket found for User ID: " + userId);
+            alertRepository.save(alert);
+            return ResponseEntity.badRequest().body(response);
         }
 
-        // 4. Gate opens
+        // Check if license plate matches the ticket's license plate for added security
+        if (!ticketOpt.get().getLicensePlate().equalsIgnoreCase(licensePlate)) {
+            response.put("error", "Exception: License plate does not match the active ticket for this user. Provided: " + licensePlate + ", Expected: " + ticketOpt.get().getLicensePlate());
+            Alert alert = new Alert();
+            alert.setType(AlertType.SECURITY_BREACH);
+            alert.setMessage("Exit attempted with mismatched license plate. User ID: " + userId + ", Provided Plate: " + licensePlate + ", Expected Plate: " + ticketOpt.get().getLicensePlate());
+            alertRepository.save(alert);
+            return ResponseEntity.badRequest().body(response);
+        }
+
+
+        Ticket ticket = ticketRepository.findById(ticketOpt.get().getTicketId()).orElseThrow(() -> new RuntimeException("Ticket not found for ID: " + ticketOpt.get().getTicketId()));
+        System.out.println("[SimulationApiController] Found ticket for exit processing. Ticket ID: " + ticket.getTicketId() + ", Current finished status: " + ticket.getFinished());
+        ticketRepository.updateExitTimeAndFinish(ticket.getTicketId(), java.time.OffsetDateTime.now());
+
+        // Gate opens
         gate.open();
 
         response.put("success", true);

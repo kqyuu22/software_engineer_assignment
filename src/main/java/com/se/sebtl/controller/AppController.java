@@ -43,4 +43,5 @@ public class AppController {
     public String simulation() {
         return "forward:/simulation.html";
     }
+    
 }

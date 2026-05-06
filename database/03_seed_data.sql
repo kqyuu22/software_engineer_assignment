@@ -30,9 +30,9 @@ INSERT INTO public.parking_slots (status, priority)
 SELECT 
     'AVAILABLE'::slot_status,
     CASE
-        WHEN i <= 50 THEN 'STAFF'::slot_priority
-        WHEN i <= 100 THEN 'LECTURER'::slot_priority
-        WHEN i <= 200 THEN 'STUDENT'::slot_priority
+        WHEN i <= 48 THEN 'STAFF'::slot_priority
+        WHEN i <= 96 THEN 'LECTURER'::slot_priority
+        WHEN i <= 192 THEN 'STUDENT'::slot_priority
         ELSE 'OTHER'::slot_priority
     END
 FROM generate_series(1, 250) AS i;
@@ -49,7 +49,7 @@ INSERT INTO public.sso_users (user_id, name, username, password, role) VALUES
     (1003, 'Le Van C', 'operator01', 'password123', 'OPERATOR'),
     (1004, 'Pham Thi D', 'operator02', 'password123', 'OPERATOR'),
     (1005, 'Hoang Van E', 'admin01', 'password123', 'ADMIN'),
-    (1006, 'Mr. STAFF', 'staff01', '1001', 'MEMBER'),
+    (1006, 'Nhan Vien', 'staff01', '1001', 'MEMBER'),
     (2001, 'Bui Thi F', 'student01', 'password123', 'MEMBER'),
     (2002, 'Vu Van G', 'student02', 'password123', 'MEMBER'),
     (2003, 'Dang Thi H', 'student03', 'password123', 'MEMBER'),
@@ -111,7 +111,7 @@ WITH t AS (
   RETURNING ticket_id
 )
 INSERT INTO public.sso_tickets (ticket_id, user_id) 
-SELECT ticket_id, 1001 FROM t;
+SELECT ticket_id, 1002 FROM t;
 
 -- ==============================================================================
 -- 6. SEED GUEST TICKETS

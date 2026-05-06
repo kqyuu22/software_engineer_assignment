@@ -122,22 +122,35 @@ public class IoTManagerService {
 
     // --- The Optimized Routing Algorithm ---
     private Direction getDirectionForSlot(int slotId, int signIndex) {
-        // Section C (Bottom/First section)
-        if (slotId <= 100) {
-            if (signIndex == 0) return Direction.RIGHT; // Turn into C
+        if (mode == SystemMode.MONITOR) {
+            return Direction.NONE;
+        }
+        // Section A (Bottom/First section)
+        if (slotId <= 48) {
+            if (signIndex == 0) return Direction.RIGHT; // Turn into A
             if (signIndex > 0) return Direction.NONE;   // Driver is already parked, ignore upper signs
         } 
         // Section B (Middle/Second section)
-        else if (slotId <= 200) {
-            if (signIndex == 0) return Direction.STRAIGHT; // Skip C
+        else if (slotId <= 96) {
+            if (signIndex == 0) return Direction.STRAIGHT; // Skip A
             if (signIndex == 1) return Direction.RIGHT;    // Turn into B
             if (signIndex > 1) return Direction.NONE;      // Driver is already parked, ignore upper signs
         } 
-        // Section A (Top/Third section)
-        else {
-            if (signIndex == 0) return Direction.STRAIGHT; // Skip C
+        // Section C (Top/Third section)
+        else if (slotId <= 144) {
+            if (signIndex == 0) return Direction.STRAIGHT; // Skip B
+            if (signIndex == 1) return Direction.STRAIGHT; // Skip A
+            if (signIndex == 2) return Direction.RIGHT;    // Turn into C
+        }
+        else if (slotId <= 192) {
+            if (signIndex == 0) return Direction.STRAIGHT; // Skip A
             if (signIndex == 1) return Direction.STRAIGHT; // Skip B
-            if (signIndex == 2) return Direction.RIGHT;    // Turn into A
+            if (signIndex == 2) return Direction.LEFT;     // Turn into D
+        }
+        else if (slotId <= 240) {
+            if (signIndex == 0) return Direction.STRAIGHT; // Skip A
+            if (signIndex == 1) return Direction.LEFT; // Turn into E
+            if (signIndex == 2) return Direction.NONE;
         }
         
         return Direction.NONE; // Fallback safety
