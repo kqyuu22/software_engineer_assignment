@@ -192,22 +192,37 @@ public class IoTManagerService {
         checkSensorHealth();
     }
 
+    @Transactional
+    public void onSensorBulkUpdate(java.util.Map<Integer, SlotStatus> slotUpdates) {
+        java.util.Map<SlotStatus, java.util.List<Integer>> grouped = new java.util.HashMap<>();
+        for (var entry : slotUpdates.entrySet()) {
+            grouped.computeIfAbsent(entry.getValue(), k -> new java.util.ArrayList<>()).add(entry.getKey());
+        }
+
+        for (var entry : grouped.entrySet()) {
+            slotRepository.updateStatusByIds(entry.getKey(), entry.getValue());
+        }
+
+        updateParkingLotStatus();
+        checkSensorHealth();
+    }
+
+    public void recalculateLotStatusAndHealth() {
+        updateParkingLotStatus();
+        checkSensorHealth();
+    }
+
     private void updateParkingLotStatus() {
         if (mode == SystemMode.MONITOR) {
             currentLotStatus = null;
             return;
         }
 
-        List<ParkingSlot> all = slotRepository.findAll();
+        long total = slotRepository.count();
+        long unknown = slotRepository.countByStatus(SlotStatus.UNKNOWN);
+        long occupied = slotRepository.countByStatus(SlotStatus.OCCUPIED);
 
-        long occupied = all.stream()
-                .filter(s -> s.getStatus() == SlotStatus.OCCUPIED)
-                .count();
-
-        long known = all.stream()
-                .filter(s -> s.getStatus() != SlotStatus.UNKNOWN)
-                .count();
-
+        long known = total - unknown;
         double occupancy = (known == 0) ? 0.0 : (double) occupied / known;
 
         ParkingLotStatus newStatus = ParkingLotStatus.AVAILABLE;
@@ -221,18 +236,14 @@ public class IoTManagerService {
 
         if (newStatus != currentLotStatus) {
             currentLotStatus = newStatus;
-            // signService.updateParkingStatus(currentLotStatus);
         }
     }
 
     private void checkSensorHealth() {
-        List<ParkingSlot> all = slotRepository.findAll();
+        long total = slotRepository.count();
+        long unknown = slotRepository.countByStatus(SlotStatus.UNKNOWN);
 
-        long unknown = all.stream()
-                .filter(s -> s.getStatus() == SlotStatus.UNKNOWN)
-                .count();
-
-        double failureRate = (double) unknown / all.size();
+        double failureRate = (double) unknown / total;
 
         sensorFailure = failureRate >= 0.25;
 

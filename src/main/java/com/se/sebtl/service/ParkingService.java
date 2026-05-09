@@ -43,4 +43,36 @@ public class ParkingService {
             return ticketViewDb.findByLicensePlateContainingIgnoreCaseOrHolderIdentifierContainingIgnoreCaseOrderByEntryTimeDesc(term, term);
         }
     }
+
+    public void fillAllAvailableSlots() {
+        slotDb.updateStatusByCurrentStatus(SlotStatus.AVAILABLE, SlotStatus.OCCUPIED);
+    }
+
+    public void fillPrioritySlots(Role priority) {
+        List<ParkingSlot> available = slotDb.findByStatus(SlotStatus.AVAILABLE);
+        List<ParkingSlot> toOccupy = available.stream()
+                .filter(s -> s.getPriority() == priority)
+                .collect(java.util.stream.Collectors.toList());
+
+        if (!toOccupy.isEmpty()) {
+            slotDb.updateStatusByIds(SlotStatus.OCCUPIED,
+                    toOccupy.stream().map(ParkingSlot::getSlotId).collect(java.util.stream.Collectors.toList()));
+        }
+    }
+
+    public void fillSlotsToPercentage(double percentage) {
+        List<ParkingSlot> available = slotDb.findByStatus(SlotStatus.AVAILABLE);
+        List<ParkingSlot> toOccupy = available.stream()
+                .limit((int) Math.ceil(slotDb.count() * percentage))
+                .collect(java.util.stream.Collectors.toList());
+
+        if (!toOccupy.isEmpty()) {
+            slotDb.updateStatusByIds(SlotStatus.OCCUPIED,
+                    toOccupy.stream().map(ParkingSlot::getSlotId).collect(java.util.stream.Collectors.toList()));
+        }
+    }
+
+    public void clearAllOccupiedSlots() {
+        slotDb.updateStatusByCurrentStatus(SlotStatus.OCCUPIED, SlotStatus.AVAILABLE);
+    }
 }

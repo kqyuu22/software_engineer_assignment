@@ -19,6 +19,7 @@ import com.se.sebtl.repository.TicketRepository;
 import com.se.sebtl.service.iot.Gate;
 import com.se.sebtl.service.iot.Camera;
 import com.se.sebtl.service.iot.CardReader;
+import com.se.sebtl.util.SlotIdParser;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -26,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 
@@ -83,6 +85,61 @@ public class SimulationApiController {
     public ResponseEntity<List<ParkingSlot>> getAllSlots() {
         return ResponseEntity.ok(parkingService.getAllSlots()); 
     }
+
+    @PostMapping("/slots/fill-all")
+    @Transactional
+    public ResponseEntity<?> fillAllSlots() {
+        parkingService.fillAllAvailableSlots();
+        iotManager.recalculateLotStatusAndHealth();
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "All available slots set to OCCUPIED");
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/slots/fill-percentage")
+    @Transactional
+    public ResponseEntity<?> fillSlotsToPercentage(@RequestParam double percentage) {
+        parkingService.fillSlotsToPercentage(percentage);
+        iotManager.recalculateLotStatusAndHealth();
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Slots filled to " + (percentage * 100) + "% occupancy");
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/slots/fill-priority")
+    @Transactional
+    public ResponseEntity<?> fillPrioritySlots(@RequestParam String priority) {
+        parkingService.fillPrioritySlots(Role.valueOf(priority.toUpperCase()));
+        iotManager.recalculateLotStatusAndHealth();
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "All " + priority + " slots set to OCCUPIED");
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/slots/clear-all")
+    @Transactional
+    public ResponseEntity<?> clearAllSlots() {
+        parkingService.clearAllOccupiedSlots();
+        iotManager.recalculateLotStatusAndHealth();
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "All occupied slots set to AVAILABLE");
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/reset-all")
+    @Transactional
+    public ResponseEntity<?> resetAll() {
+        gate.close();
+        hardwareSimulator.simulateSensorFixBulk(java.util.stream.IntStream.rangeClosed(1, 240).boxed().collect(java.util.stream.Collectors.toList()));
+        ticketRepository.finishAllActiveTickets();
+        parkingService.clearAllOccupiedSlots();
+        iotManager.recalculateLotStatusAndHealth();
+        iotManager.setMode(SystemMode.NORMAL);
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Simulation reset to clean state");
+        return ResponseEntity.ok(response);
+    }
+
     // ----- IOT STATUS ENDPOINTS -----
     @GetMapping("/signs")
     public ResponseEntity<?> getSignStatus() {
@@ -158,10 +215,29 @@ public class SimulationApiController {
     // }
 
     @PostMapping("/sensor-failure-bulk")
-    public ResponseEntity<?> sensorFailureBulk(@RequestBody List<Integer> slotIds) {
-        for (int slotId : slotIds) {
-            hardwareSimulator.simulateSensorFailure(slotId);
+    public ResponseEntity<?> sensorFailureBulk(@RequestBody Map<String, String> body) {
+        String slotsSpec = body.get("slots");
+        if (slotsSpec == null || slotsSpec.isBlank()) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Missing 'slots' parameter. Expected format: \"1-5, 8, 9-15, 20-23\"");
+            return ResponseEntity.badRequest().body(error);
         }
+
+        Set<Integer> slotIds;
+        try {
+            slotIds = SlotIdParser.parse(slotsSpec);
+        } catch (NumberFormatException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Invalid slot ID format: " + e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        } catch (IllegalArgumentException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        }
+
+        hardwareSimulator.simulateSensorFailureBulk(slotIds);
+
         Alert alert = new Alert();
         alert.setType(AlertType.SYSTEM_FAILURE);
         alert.setMessage("Hardware sensor malfunction detected at slots: " + slotIds.toString());
@@ -173,10 +249,29 @@ public class SimulationApiController {
     }
 
     @PostMapping("/sensor-fix-bulk")
-    public ResponseEntity<?> sensorFixBulk(@RequestBody List<Integer> slotIds) {
-        for (int slotId : slotIds) {
-            hardwareSimulator.simulateSensorFix(slotId);
+    public ResponseEntity<?> sensorFixBulk(@RequestBody Map<String, String> body) {
+        String slotsSpec = body.get("slots");
+        if (slotsSpec == null || slotsSpec.isBlank()) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Missing 'slots' parameter. Expected format: \"1-5, 8, 9-15, 20-23\"");
+            return ResponseEntity.badRequest().body(error);
         }
+
+        Set<Integer> slotIds;
+        try {
+            slotIds = SlotIdParser.parse(slotsSpec);
+        } catch (NumberFormatException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Invalid slot ID format: " + e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        } catch (IllegalArgumentException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        }
+
+        hardwareSimulator.simulateSensorFixBulk(slotIds);
+
         Map<String, String> response = new HashMap<>();
         response.put("message", "Triggered sensor fix for " + slotIds.size() + " slots");
         return ResponseEntity.ok(response);

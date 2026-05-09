@@ -28,18 +28,16 @@ public class HardwareSimulatorService {
 
     @PostConstruct 
     public void initializeHardware() {
-        // Expand to 300 sensors for Sections C, B, and A
-        for (int i = 1; i <= 300; i++) {
+        for (int i = 1; i <= 240; i++) {
             sensors.add(new Sensor(i, iotManager));
         }
 
-        // Exactly 3 signs for the 3 intersections
         for (int i = 1; i <= 3; i++) {
             signs.add(new IntersectionSign(iotManager));
         }
         
         iotManager.setSigns(signs); 
-        System.out.println("[SYSTEM] Hardware array initialized with 300 sensors and 3 signs.");
+        System.out.println("[SYSTEM] Hardware array initialized with 240 sensors and 3 signs.");
     }
     
     public void simulateCarArrival(int assignedSlotId) {
@@ -92,5 +90,28 @@ public class HardwareSimulatorService {
         } else {
             System.out.println("[ERROR] Invalid slot ID.");
         }
+    }
+
+    public void simulateSensorFailureBulk(java.util.Collection<Integer> slotIds) {
+        java.util.Map<Integer, SlotStatus> updates = new java.util.HashMap<>();
+        for (int slotId : slotIds) {
+            if (slotId > 0 && slotId <= sensors.size()) {
+                updates.put(slotId, SlotStatus.UNKNOWN);
+            }
+        }
+        iotManager.onSensorBulkUpdate(updates);
+    }
+
+    public void simulateSensorFixBulk(java.util.Collection<Integer> slotIds) {
+        java.util.Map<Integer, SlotStatus> updates = new java.util.HashMap<>();
+        for (int slotId : slotIds) {
+            if (slotId > 0 && slotId <= sensors.size()) {
+                Sensor sensor = sensors.get(slotId - 1);
+                SlotStatus state = sensor.getInternalState();
+                sensor.setInternalState(state);
+                updates.put(slotId, state);
+            }
+        }
+        iotManager.onSensorBulkUpdate(updates);
     }
 }

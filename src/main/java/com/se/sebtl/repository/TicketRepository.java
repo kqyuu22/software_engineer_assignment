@@ -12,4 +12,8 @@ public interface TicketRepository extends JpaRepository<Ticket, Integer> {
 
 	@org.springframework.data.jpa.repository.Query("SELECT t FROM Ticket t WHERE t.parkingSpot = :parkingSpot AND t.finished = false")
 	java.util.List<Ticket> findByParkingSpotAndFinishedFalse(@org.springframework.data.repository.query.Param("parkingSpot") Integer parkingSpot);
+
+	@org.springframework.data.jpa.repository.Modifying
+	@org.springframework.data.jpa.repository.Query("UPDATE Ticket t SET t.finished = true, t.exitTime = CURRENT_TIMESTAMP WHERE t.finished = false")
+	void finishAllActiveTickets();
 }

@@ -31,4 +31,16 @@ public class Sensor {
     public void restoreState() {
         iotManager.onSensorUpdate(slotId, internalState);
     }
+
+    public void setInternalState(SlotStatus status) {
+        this.internalState = status;
+    }
+
+    public SlotStatus getInternalState() {
+        return internalState;
+    }
+
+    public int getSlotId() {
+        return slotId;
+    }
 }

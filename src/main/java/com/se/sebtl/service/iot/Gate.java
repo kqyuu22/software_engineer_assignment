@@ -22,8 +22,8 @@ public class Gate {
     @Async // Crucial: Moves the sleep to a background thread
     protected void closeDelayed() {
         try {
-            Thread.sleep(3000);
-            System.out.println("Gate: Closing gate after 3-second delay");
+            Thread.sleep(5000);
+            System.out.println("Gate: Closing gate after 5-second delay");
             isOpen = false;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
