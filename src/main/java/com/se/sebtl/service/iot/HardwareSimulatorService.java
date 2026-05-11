@@ -24,6 +24,16 @@ public class HardwareSimulatorService {
     public HardwareSimulatorService(IoTManagerService iotManager, ParkingSlotRepository slotRepository) {
         this.iotManager = iotManager;
         this.slotRepository = slotRepository;
+        initializeHardware();
+        // Initialize the sensor status based on the current state of the parking lot in the database
+        slotRepository.findAll().forEach(slot -> {
+            int slotId = slot.getSlotId();
+            SlotStatus status = slot.getStatus();
+            System.out.println("[HardwareSimulator] Initializing sensor for slot " + slotId + " with status " + status);
+            if (slotId > 0 && slotId <= sensors.size()) {
+                sensors.get(slotId - 1).setInternalState(status);
+            }
+        });
     }
 
     @PostConstruct 
@@ -40,10 +50,17 @@ public class HardwareSimulatorService {
         System.out.println("[SYSTEM] Hardware array initialized with 240 sensors and 3 signs.");
     }
     
-    public void simulateCarArrival(int assignedSlotId) {
+    public boolean simulateCarArrival(int assignedSlotId) {
+        System.out.println("[HardwareSimulator] Simulating car arrival at slot " + assignedSlotId);
         if (assignedSlotId < 1 || assignedSlotId > sensors.size()) {
-            System.out.println("[ERROR] Invalid slot ID.");
-            return;
+            System.out.println("[HardwareSimulator] ERROR: Invalid slot ID.");
+            return false;
+        }
+        // If the current slot is not available or reserved
+        SlotStatus currentSlotStatus = sensors.get(assignedSlotId - 1).getInternalState();
+        if (currentSlotStatus != SlotStatus.AVAILABLE && currentSlotStatus != SlotStatus.RESERVED) {
+            System.out.println("[HardwareSimulator] ERROR: Assigned slot " + assignedSlotId + " is not available. Cannot simulate arrival.");
+            return false;
         }
 
         int actualParkedSlot = assignedSlotId;
@@ -62,19 +79,29 @@ public class HardwareSimulatorService {
             if (!availableInSection.isEmpty()) {
                 // Pick a random available spot from the list
                 actualParkedSlot = availableInSection.get(random.nextInt(availableInSection.size())).getSlotId();
-                System.out.println("[CHAOS] Driver ignored assigned spot " + assignedSlotId + 
+                System.out.println("[HardwareSimulator] CHAOS: Driver ignored assigned spot " + assignedSlotId + 
                                    " and parked in spot " + actualParkedSlot + " instead!");
             }
         }
 
-        System.out.println("[SIMULATION] Hardware sensor triggered for slot " + actualParkedSlot);
+        System.out.println("[HardwareSimulator] Hardware sensor triggered for slot " + actualParkedSlot);
         sensors.get(actualParkedSlot - 1).reportOccupied();
+        return true;
     }
 
-    public void simulateCarDeparture(int slotId) {
-        if (slotId > 0 && slotId <= sensors.size()) {
-            sensors.get(slotId - 1).reportAvailable();
+    public boolean simulateCarDeparture(int slotId) {
+        if (slotId < 1 || slotId > sensors.size()) {
+            System.out.println("[HardwareSimulator] ERROR: Invalid slot ID.");
+            return false;
         }
+        if (sensors.get(slotId - 1).getInternalState() != SlotStatus.OCCUPIED) {
+            System.out.println("[HardwareSimulator] ERROR: Slot " + slotId + " is not currently occupied. Cannot simulate departure.");
+            return false;
+        }
+
+        sensors.get(slotId - 1).setInternalState(SlotStatus.AVAILABLE);
+        iotManager.reserveSlotForExit(slotId);
+        return true;
     }
 
     public void simulateSensorFailure(int slotId) {
@@ -85,10 +112,10 @@ public class HardwareSimulatorService {
 
     public void simulateSensorFix(int slotId) {
         if (slotId > 0 && slotId <= sensors.size()) {
-            System.out.println("[SIMULATION] Hardware sensor fixed at slot " + slotId + ". Rebooting to previous state.");
+            System.out.println("[HardwareSimulator] Hardware sensor fixed at slot " + slotId + ". Rebooting to previous state.");
             sensors.get(slotId - 1).restoreState();
         } else {
-            System.out.println("[ERROR] Invalid slot ID.");
+            System.out.println("[HardwareSimulator] ERROR: Invalid slot ID.");
         }
     }
 

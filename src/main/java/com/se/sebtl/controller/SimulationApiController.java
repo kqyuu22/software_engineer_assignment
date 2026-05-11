@@ -19,7 +19,6 @@ import com.se.sebtl.repository.TicketRepository;
 import com.se.sebtl.service.iot.Gate;
 import com.se.sebtl.service.iot.Camera;
 import com.se.sebtl.service.iot.CardReader;
-import com.se.sebtl.util.SlotIdParser;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -141,6 +140,11 @@ public class SimulationApiController {
     }
 
     // ----- IOT STATUS ENDPOINTS -----
+    @GetMapping("/timeouts")
+    public ResponseEntity<List<String>> getTimeouts() {
+        return ResponseEntity.ok(iotManager.consumeTimeouts());
+    }
+
     @GetMapping("/signs")
     public ResponseEntity<?> getSignStatus() {
         return ResponseEntity.ok(iotManager.getSignDirections());
@@ -215,27 +219,7 @@ public class SimulationApiController {
     // }
 
     @PostMapping("/sensor-failure-bulk")
-    public ResponseEntity<?> sensorFailureBulk(@RequestBody Map<String, String> body) {
-        String slotsSpec = body.get("slots");
-        if (slotsSpec == null || slotsSpec.isBlank()) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", "Missing 'slots' parameter. Expected format: \"1-5, 8, 9-15, 20-23\"");
-            return ResponseEntity.badRequest().body(error);
-        }
-
-        Set<Integer> slotIds;
-        try {
-            slotIds = SlotIdParser.parse(slotsSpec);
-        } catch (NumberFormatException e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", "Invalid slot ID format: " + e.getMessage());
-            return ResponseEntity.badRequest().body(error);
-        } catch (IllegalArgumentException e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(error);
-        }
-
+    public ResponseEntity<?> sensorFailureBulk(@RequestBody List<Integer> slotIds) {
         hardwareSimulator.simulateSensorFailureBulk(slotIds);
 
         Alert alert = new Alert();
@@ -249,27 +233,7 @@ public class SimulationApiController {
     }
 
     @PostMapping("/sensor-fix-bulk")
-    public ResponseEntity<?> sensorFixBulk(@RequestBody Map<String, String> body) {
-        String slotsSpec = body.get("slots");
-        if (slotsSpec == null || slotsSpec.isBlank()) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", "Missing 'slots' parameter. Expected format: \"1-5, 8, 9-15, 20-23\"");
-            return ResponseEntity.badRequest().body(error);
-        }
-
-        Set<Integer> slotIds;
-        try {
-            slotIds = SlotIdParser.parse(slotsSpec);
-        } catch (NumberFormatException e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", "Invalid slot ID format: " + e.getMessage());
-            return ResponseEntity.badRequest().body(error);
-        } catch (IllegalArgumentException e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(error);
-        }
-
+    public ResponseEntity<?> sensorFixBulk(@RequestBody List<Integer> slotIds) {
         hardwareSimulator.simulateSensorFixBulk(slotIds);
 
         Map<String, String> response = new HashMap<>();
@@ -507,9 +471,13 @@ public class SimulationApiController {
 
     @PostMapping("/car-arrival")
     public ResponseEntity<?> carArrival(@RequestParam int slotId) {
-        hardwareSimulator.simulateCarArrival(slotId);
+        boolean success = hardwareSimulator.simulateCarArrival(slotId);
         Map<String, String> response = new HashMap<>();
-        response.put("message", "Triggered car arrival for slot " + slotId);
+        if (success) {
+            response.put("message", "Triggered car arrival for slot " + slotId);
+        } else {
+            response.put("message", "Failed to trigger car arrival for slot " + slotId);
+        }
         return ResponseEntity.ok(response);
     }
 
@@ -542,7 +510,13 @@ public class SimulationApiController {
                 response.put("userId", "Unknown");
                 response.put("price", "Unknown");
             }
-            hardwareSimulator.simulateCarDeparture(slotId);
+            boolean success = hardwareSimulator.simulateCarDeparture(slotId);
+            if (!success) {
+                response.put("message", "Failed to trigger car departure for slot " + slotId);
+            }
+            else {
+                response.put("message", "Triggered car departure for slot " + slotId + ", ticket ID: " + (ticket != null ? ticket.getTicketId() : "Unknown") + ", license plate: " + (ticket != null ? ticket.getLicensePlate() : "Unknown") + ", User ID: " + (ticket != null ? ticket.getUserId() : "Unknown"));
+            }
             return ResponseEntity.ok(response);
         }
         catch (Exception e) {
@@ -679,6 +653,11 @@ public class SimulationApiController {
         Ticket ticket = ticketRepository.findById(ticketOpt.get().getTicketId()).orElseThrow(() -> new RuntimeException("Ticket not found for ID: " + ticketOpt.get().getTicketId()));
         System.out.println("[SimulationApiController] Found ticket for exit processing. Ticket ID: " + ticket.getTicketId() + ", Current finished status: " + ticket.getFinished());
         ticketRepository.updateExitTimeAndFinish(ticket.getTicketId(), java.time.OffsetDateTime.now());
+
+        Integer parkingSpot = ticketOpt.get().getParkingSpot();
+        if (parkingSpot != null) {
+            iotManager.onSensorUpdate(parkingSpot, SlotStatus.AVAILABLE);
+        }
 
         // Gate opens
         gate.open();

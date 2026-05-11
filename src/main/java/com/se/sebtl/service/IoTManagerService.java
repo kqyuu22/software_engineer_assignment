@@ -33,6 +33,7 @@ public class IoTManagerService {
     private List<IntersectionSign> signs;
     private java.util.Map<Integer, Direction> currentSignDirections = new java.util.concurrent.ConcurrentHashMap<>();
     private java.util.Map<Integer, Boolean> signFailures = new java.util.concurrent.ConcurrentHashMap<>();
+    private java.util.Queue<String> recentTimeouts = new java.util.concurrent.ConcurrentLinkedQueue<>();
     private ParkingLotStatus currentLotStatus = ParkingLotStatus.AVAILABLE;
     private SystemMode mode = SystemMode.NORMAL;
     private boolean sensorFailure = false;
@@ -112,11 +113,11 @@ public class IoTManagerService {
             sign.updateDirection(direction);
             currentSignDirections.put(i, direction);
             System.out.println("[SIGN UPDATE] Sign " + i + " direction: " + direction);
-            try {
-                Thread.sleep(3000); // Wait 3 seconds before updating next sign
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
+            // try {
+            //     Thread.sleep(3000); // Wait 3 seconds before updating next sign
+            // } catch (InterruptedException e) {
+            //     Thread.currentThread().interrupt();
+            // }
         }
     }
 
@@ -174,12 +175,53 @@ public class IoTManagerService {
                             guestTicketRepository.deleteByTicket(t);
                             ticketRepository.delete(t);
                             System.out.println("[SYSTEM] Cancelled un-arrived ticket " + t.getTicketId() + " (Plate: " + t.getLicensePlate() + ")");
+                            recentTimeouts.offer("Timeout: Slot " + slotId + " was un-arrived by Plate " + t.getLicensePlate() + ". Ticket cancelled and Spot released.");
                         }
                     }
                 });
                 return null;
             });
         }, executeTime);
+    }
+
+    public void reserveSlotForExit(int slotId) {
+        transactionTemplate.execute(status -> {
+            slotRepository.findById(slotId).ifPresent(slot -> {
+                if (slot.getStatus() == SlotStatus.OCCUPIED) {
+                    slot.setStatus(SlotStatus.RESERVED);
+                    slotRepository.save(slot);
+                    startDepartureTimer(slotId);
+                }
+            });
+            return null;
+        });
+    }
+
+    private void startDepartureTimer(int slotId) {
+        Instant executeTime = Instant.now().plus(Duration.ofSeconds(30)); // Reduced to 30 seconds
+
+        taskScheduler.schedule(() -> {
+            transactionTemplate.execute(status -> {
+                slotRepository.findById(slotId).ifPresent(slot -> {
+                    if (slot.getStatus() == SlotStatus.RESERVED) {
+                        slot.setStatus(SlotStatus.OCCUPIED);
+                        slotRepository.save(slot);
+                        System.out.println("[SYSTEM] Exit timer expired. Slot " + slotId + " restored to OCCUPIED.");
+                        recentTimeouts.offer("Timeout: Exit not confirmed for Slot " + slotId + ". Slot restored to OCCUPIED.");
+                    }
+                });
+                return null;
+            });
+        }, executeTime);
+    }
+
+    public java.util.List<String> consumeTimeouts() {
+        java.util.List<String> timeouts = new java.util.ArrayList<>();
+        String msg;
+        while ((msg = recentTimeouts.poll()) != null) {
+            timeouts.add(msg);
+        }
+        return timeouts;
     }
 
     @Transactional
