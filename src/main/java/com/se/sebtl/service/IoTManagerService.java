@@ -59,6 +59,7 @@ public class IoTManagerService {
             currentSignDirections.put(i, Direction.NONE);
             signFailures.put(i, false);
         }
+        System.out.println("[IoTManagerService] Signs registered: " + signs.size());
     }
 
     public java.util.Map<String, Object> getSignDirections() {
@@ -158,7 +159,7 @@ public class IoTManagerService {
     }
 
     private void startReservationTimer(int slotId) {
-        Instant executeTime = Instant.now().plus(Duration.ofSeconds(30)); // Reduced to 30 seconds
+        Instant executeTime = Instant.now().plus(Duration.ofSeconds(180)); // Reduced to 180 seconds
         
         taskScheduler.schedule(() -> {
             transactionTemplate.execute(status -> {
@@ -198,7 +199,7 @@ public class IoTManagerService {
     }
 
     private void startDepartureTimer(int slotId) {
-        Instant executeTime = Instant.now().plus(Duration.ofSeconds(30)); // Reduced to 30 seconds
+        Instant executeTime = Instant.now().plus(Duration.ofSeconds(180)); // 180 seconds
 
         taskScheduler.schedule(() -> {
             transactionTemplate.execute(status -> {

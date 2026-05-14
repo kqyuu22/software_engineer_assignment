@@ -64,6 +64,7 @@ public class SimulationApiController {
             ParkingService parkingService,
             Gate gate,
             Camera camera, CardReader cardReader, TicketViewRepository ticketViewRepository) {
+        System.out.println("[SimulationApiController] Constructor called. Injecting dependencies.");
         this.hardwareSimulator = hardwareSimulator;
         this.iotManager = iotManager;
         this.ssoTicketRepository = ssoTicketRepository;
@@ -586,22 +587,39 @@ public class SimulationApiController {
                 System.out.println("[SimulationApiController] Current bill for user ID " + ssoTicket.getUserId() + ", Bill ID: " + (bill != null ? bill.getBillId() : "No existing bill") + ". Adding price: " + price);
                 
                 if (bill == null) {
-                    bill = new Billing();
-                    bill.setUserId(ssoTicket.getUserId());
-                    bill.setAmount(price);
-                    bill.setBillingMonth(LocalDate.now().withDayOfMonth(1));
+                    Billing new_bill = new Billing();
+                    new_bill.setUserId(ssoTicket.getUserId());
+                    new_bill.setAmount(price);
+                    new_bill.setBillingMonth(LocalDate.now().withDayOfMonth(1));
+                    new_bill.setLastUpdated(java.time.OffsetDateTime.now());
+                    new_bill.setStatus(BillStatus.UNPAID);
                     System.out.println("[SimulationApiController] Creating new bill for user ID " + ssoTicket.getUserId() + " with amount: " + price);
+                    System.out.println("[SimulationApiController] New bill: User ID: " + new_bill.getUserId() + ", Amount: " + new_bill.getAmount() + ", Billing Month: " + new_bill.getBillingMonth());
+                    try {
+                        billingRepository.save(new_bill);
+                    } catch (Exception e) {
+                        System.out.println("[SimulationApiController] Error saving new bill: " + e.getMessage());
+                        throw e; // Rethrow to trigger transaction rollback
+                    }
+                    ssoTicket.setBillId(new_bill.getBillId());
+                    
+                    
+                    ssoTicketRepository.save(ssoTicket);
+                    System.out.println("[SimulationApiController] Saving bill for user ID " + ssoTicket.getUserId() + ", Bill ID: " + (new_bill.getBillId() != null ? new_bill.getBillId() : "New bill") + ", Amount: " + new_bill.getAmount());
+                    
                 }
                 else {
                     bill.setAmount(bill.getAmount().add(price));
                     bill.setLastUpdated(java.time.OffsetDateTime.now());
                     System.out.println("[SimulationApiController] Updated bill amount for user ID " + ssoTicket.getUserId() + ", Bill ID: " + bill.getBillId() + ", New Amount: " + bill.getAmount());
+                    
+                    System.out.println("[SimulationApiController] Saving bill for user ID " + ssoTicket.getUserId() + ", Bill ID: " + (bill.getBillId() != null ? bill.getBillId() : "New bill") + ", Amount: " + bill.getAmount());
+                    ssoTicket.setBillId(bill.getBillId());
+                    
+                    billingRepository.save(bill);
+                    ssoTicketRepository.save(ssoTicket);
                 }
-                System.out.println("[SimulationApiController] Saving bill for user ID " + ssoTicket.getUserId() + ", Bill ID: " + (bill.getBillId() != null ? bill.getBillId() : "New bill") + ", Amount: " + bill.getAmount());
-                ssoTicket.setBillId(bill.getBillId());
                 
-                billingRepository.save(bill);
-                ssoTicketRepository.save(ssoTicket);
 
                 System.out.println("[SimulationApiController] Payment processed for SSO ticket ID " + ssoTicket.getTicket().getTicketId() + ", User ID: " + ssoTicket.getUserId() + ". Amount paid: " + price);
                 Map<String, Object> response = new HashMap<>();

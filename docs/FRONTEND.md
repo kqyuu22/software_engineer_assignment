@@ -64,11 +64,11 @@ Every failed request (4xx or 5xx) will return a JSON object with a single key: `
 
         | Section | ID Range |
         |---------|----------|
-        |    A    |   1-50   |
-        |    B    |  51-100  |
-        |    C    | 101-150  |
-        |    D    | 151-200  |
-        |    E    | 201-250  |
+        |    A    |   1-48   |
+        |    B    |  49-96  |
+        |    C    | 97-144  |
+        |    D    | 145-192  |
+        |    E    | 193-240  |
 
     - Alert Management
         - Active: `GET operator/alerts/active` (unresolved). You can use a hook like useQuery to refresh every 30 seconds. If none, then frontend receives an empty array [].

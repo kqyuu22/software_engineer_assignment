@@ -24,12 +24,16 @@ public class HardwareSimulatorService {
     public HardwareSimulatorService(IoTManagerService iotManager, ParkingSlotRepository slotRepository) {
         this.iotManager = iotManager;
         this.slotRepository = slotRepository;
-        initializeHardware();
+        // initializeHardware(); // This is already called by Spring after construction in SimulationApiController, so we don't need to call it here.
         // Initialize the sensor status based on the current state of the parking lot in the database
         slotRepository.findAll().forEach(slot -> {
             int slotId = slot.getSlotId();
             SlotStatus status = slot.getStatus();
-            System.out.println("[HardwareSimulator] Initializing sensor for slot " + slotId + " with status " + status);
+
+            if (slotId % 48 == 1) {
+                System.out.println("[HardwareSimulator] Initializing sensor for slot " + slotId + " with status " + status);
+            }
+
             if (slotId > 0 && slotId <= sensors.size()) {
                 sensors.get(slotId - 1).setInternalState(status);
             }
@@ -38,6 +42,16 @@ public class HardwareSimulatorService {
 
     @PostConstruct 
     public void initializeHardware() {
+        if (!sensors.isEmpty()){
+            // Empty the lists if they were already initialized to avoid duplicates
+            System.out.println("[HardwareSimulator] Clearing existing hardware arrays before re-initialization.");
+            sensors.clear();
+        }
+        if (!signs.isEmpty()) {
+            System.out.println("[HardwareSimulator] Clearing existing signs array before re-initialization.");
+            signs.clear();
+        }
+
         for (int i = 1; i <= 240; i++) {
             sensors.add(new Sensor(i, iotManager));
         }
@@ -47,7 +61,7 @@ public class HardwareSimulatorService {
         }
         
         iotManager.setSigns(signs); 
-        System.out.println("[SYSTEM] Hardware array initialized with 240 sensors and 3 signs.");
+        System.out.println("[SYSTEM] Hardware array initialized with " + sensors.size() + " sensors and " + signs.size() + " signs.");
     }
     
     public boolean simulateCarArrival(int assignedSlotId) {
